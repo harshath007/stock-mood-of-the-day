@@ -1,1 +1,4 @@
+yfinance
+feedparser
+vaderSentiment
 streamlit
