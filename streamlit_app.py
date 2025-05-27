@@ -16,14 +16,9 @@ POPULAR_TICKERS = [
     "NFLX", "BA", "INTC", "AMD", "CRM", "PYPL", "SQ", "UBER", "SHOP"
 ]
 
-EMOJI_MAP = {
-    "bull": "🤑",
-    "bear": "😱",
-    "neutral": "😐"
-}
-
 analyzer = SentimentIntensityAnalyzer()
 
+# Market hours checker
 def is_market_open():
     now = datetime.now(pytz.timezone("US/Eastern"))
     weekday = now.weekday()
@@ -51,8 +46,7 @@ def get_stock_data(ticker, hist_days=7):
     return hist
 
 def compute_mood_score(pct_change, volume_spike, sentiment):
-    score = pct_change * 2 + (volume_spike - 1) * 5 + sentiment * 10
-    return score
+    return pct_change * 2 + (volume_spike - 1) * 5 + sentiment * 10
 
 def get_mood(ticker, pct_change, volume_spike, sentiment):
     if pct_change > 3:
@@ -195,6 +189,8 @@ for idx, data in enumerate(mood_results):
                 padding: 20px;
                 box-shadow: 0 2px 5px rgb(0 0 0 / 0.1);
                 text-align:center;
+                background-color: #f9f9f9;
+                margin-bottom: 20px;
                 ">
                 <h2>{data['ticker']} {data['emoji']} {'🏆' if winner and data['ticker'] == winner['ticker'] and len(mood_results) > 1 else ''}</h2>
                 <p style="font-weight:bold;">{data['sentence']}</p>
@@ -221,3 +217,4 @@ for idx, data in enumerate(mood_results):
 # Footer
 st.markdown("---")
 st.markdown("Made with ❤️ by Stock Mood of the Day | Data from Yahoo Finance & Google News RSS")
+
