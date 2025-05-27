@@ -2,3 +2,4 @@ yfinance
 feedparser
 vaderSentiment
 streamlit
+plotly
