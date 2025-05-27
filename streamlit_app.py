@@ -7,6 +7,7 @@ import pytz
 import altair as alt
 import pandas as pd
 import random
+import plotly.graph_objects as go
 
 # ---------- Constants & Helpers -----------
 
@@ -50,7 +51,6 @@ def get_stock_data(ticker, hist_days=7):
     return hist
 
 def compute_mood_score(pct_change, volume_spike, sentiment):
-    # Weighted scoring formula
     score = pct_change * 2 + (volume_spike - 1) * 5 + sentiment * 10
     return score
 
@@ -103,6 +103,18 @@ def altair_mood_chart(df):
     rule = base.mark_rule(color='lightgray')
     chart = (rule + points).properties(height=80)
     return chart
+
+def plot_price_chart(hist):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=hist.index,
+        y=hist['Close'],
+        mode='lines+markers',
+        name='Close Price',
+        line=dict(color='royalblue', width=2)
+    ))
+    fig.update_layout(title='Stock Price Trend', xaxis_title='Date', yaxis_title='Price (USD)', height=300)
+    return fig
 
 # ------------- Streamlit UI -------------
 
@@ -159,7 +171,8 @@ for ticker in tickers:
             "sentiment": avg_sentiment,
             "score": mood_score,
             "headlines": headlines,
-            "history_df": mood_hist_df
+            "history_df": mood_hist_df,
+            "hist_data": hist
         })
     except Exception as e:
         st.warning(f"Error fetching data for {ticker}: {e}")
@@ -201,6 +214,8 @@ for idx, data in enumerate(mood_results):
         st.markdown("</ul>", unsafe_allow_html=True)
         st.markdown("### Mood History (last 7 days)")
         st.altair_chart(altair_mood_chart(data["history_df"]), use_container_width=True)
+        st.markdown("### Stock Price Trend")
+        st.plotly_chart(plot_price_chart(data["hist_data"]), use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
 # Footer
