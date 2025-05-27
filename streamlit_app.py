@@ -5,11 +5,23 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from datetime import datetime, timedelta
 import pytz
 import altair as alt
+import pandas as pd
 import random
 
-# ------------------------
-# Helpers & Core Functions
-# ------------------------
+# ---------- Constants & Helpers -----------
+
+POPULAR_TICKERS = [
+    "AAPL", "TSLA", "MSFT", "GOOG", "AMZN", "NVDA", "META", "DIS",
+    "NFLX", "BA", "INTC", "AMD", "CRM", "PYPL", "SQ", "UBER", "SHOP"
+]
+
+EMOJI_MAP = {
+    "bull": "🤑",
+    "bear": "😱",
+    "neutral": "😐"
+}
+
+analyzer = SentimentIntensityAnalyzer()
 
 def is_market_open():
     now = datetime.now(pytz.timezone("US/Eastern"))
@@ -18,142 +30,178 @@ def is_market_open():
     market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
     return weekday < 5 and market_open <= now <= market_close
 
+@st.cache_data(show_spinner=False)
 def get_sentiment(text):
-    analyzer = SentimentIntensityAnalyzer()
     return analyzer.polarity_scores(text)["compound"]
 
+@st.cache_data(show_spinner=False)
 def fetch_news_sentiment(ticker):
     feed_url = f"https://news.google.com/rss/search?q={ticker}+stock"
     feed = feedparser.parse(feed_url)
     headlines = [entry.title for entry in feed.entries[:3]]
-    sentiments = [get_sentiment(headline) for headline in headlines]
+    sentiments = [get_sentiment(h) for h in headlines]
     avg_sent = sum(sentiments) / len(sentiments) if sentiments else 0
     return headlines, avg_sent
 
-def get_stock_mood(ticker, hist_days=7):
-    try:
-        ticker_obj = yf.Ticker(ticker)
-        hist = ticker_obj.history(period=f"{hist_days+1}d")
-        if hist.empty or len(hist) < 2:
-            return None
+@st.cache_data(show_spinner=False)
+def get_stock_data(ticker, hist_days=7):
+    ticker_obj = yf.Ticker(ticker)
+    hist = ticker_obj.history(period=f"{hist_days+1}d")
+    return hist
 
-        market_open_now = is_market_open()
+def compute_mood_score(pct_change, volume_spike, sentiment):
+    # Weighted scoring formula
+    score = pct_change * 2 + (volume_spike - 1) * 5 + sentiment * 10
+    return score
 
-        if market_open_now:
-            current_price = hist["Close"][-1]
-            prev_close = hist["Close"][-2]
+def get_mood(ticker, pct_change, volume_spike, sentiment):
+    if pct_change > 3:
+        return "🤑", f"Investors are vibing with {ticker}."
+    elif pct_change < -3:
+        return "😱", f"{ticker} is getting hammered today."
+    elif volume_spike > 2:
+        return "👀", f"Unusual activity around {ticker}."
+    elif sentiment > 0.3:
+        return "😎", f"{ticker} is coasting with good vibes."
+    elif sentiment < -0.3:
+        return "🧨", f"Bad press brewing for {ticker}."
+    elif abs(pct_change) < 0.3:
+        return "💤", f"{ticker} is chilling today."
+    else:
+        return "🤔", f"Mixed signals for {ticker}."
+
+def build_mood_history_df(hist):
+    records = []
+    for i in range(len(hist) - 1):
+        day1 = hist.index[i]
+        day2 = hist.index[i+1]
+        close1 = hist["Close"].iloc[i]
+        close2 = hist["Close"].iloc[i+1]
+        pct_change = ((close2 - close1) / close1) * 100
+
+        if pct_change > 2:
+            emoji = "🤑"
+        elif pct_change < -2:
+            emoji = "😱"
         else:
-            current_price = hist["Close"][-1]
-            prev_close = hist["Close"][-2]
+            emoji = "😐"
+        records.append({"date": day2.strftime("%Y-%m-%d"), "pct_change": pct_change, "emoji": emoji})
+    return pd.DataFrame(records)
 
-        pct_change = ((current_price - prev_close) / prev_close) * 100
+def altair_mood_chart(df):
+    base = alt.Chart(df).encode(
+        x=alt.X('date:T', title='Date', axis=alt.Axis(format='%m-%d')),
+        y=alt.value(50)
+    )
+    points = base.mark_text(fontSize=30).encode(
+        text='emoji',
+        tooltip=[
+            alt.Tooltip('date', title='Date'),
+            alt.Tooltip('pct_change', title='% Change', format=".2f")
+        ]
+    )
+    rule = base.mark_rule(color='lightgray')
+    chart = (rule + points).properties(height=80)
+    return chart
+
+# ------------- Streamlit UI -------------
+
+st.set_page_config(page_title="Stock Mood of the Day", layout="wide")
+st.title("📈 Stock Mood of the Day")
+
+# Surprise Me button
+if st.button("🎲 Surprise Me!"):
+    random_ticker = random.choice(POPULAR_TICKERS)
+    st.session_state["tickers"] = [random_ticker]
+
+# Input box or load from session_state
+if "tickers" not in st.session_state:
+    st.session_state["tickers"] = []
+
+user_input = st.text_input(
+    "Enter 1-3 stock tickers (NYSE/NASDAQ), separated by commas:",
+    value=", ".join(st.session_state["tickers"]) if st.session_state["tickers"] else ""
+)
+
+tickers = [t.strip().upper() for t in user_input.split(",") if t.strip()][:3]
+st.session_state["tickers"] = tickers
+
+market_open_now = is_market_open()
+
+mood_results = []
+for ticker in tickers:
+    try:
+        hist = get_stock_data(ticker)
+        if hist.empty or len(hist) < 2:
+            st.warning(f"Not enough data for {ticker}.")
+            continue
+
+        current_close = hist["Close"][-1]
+        prev_close = hist["Close"][-2]
+        pct_change = ((current_close - prev_close) / prev_close) * 100
+
         avg_volume = hist["Volume"][:-1].mean()
         today_volume = hist["Volume"][-1]
         volume_spike = today_volume / avg_volume if avg_volume else 1
 
         headlines, avg_sentiment = fetch_news_sentiment(ticker)
 
-        # Determine mood emoji and sentence
-        mood = "🤔"
-        sentence = "Unusual day — mixed signals."
+        mood_emoji, mood_sentence = get_mood(ticker, pct_change, volume_spike, avg_sentiment)
+        mood_score = compute_mood_score(pct_change, volume_spike, avg_sentiment)
+        mood_hist_df = build_mood_history_df(hist)
 
-        if pct_change > 3:
-            mood = "🤑"
-            sentence = f"Investors are vibing with {ticker}."
-        elif pct_change < -3:
-            mood = "😱"
-            sentence = f"{ticker} is getting hammered today."
-        elif volume_spike > 2:
-            mood = "👀"
-            sentence = f"Unusual activity around {ticker}."
-        elif avg_sentiment > 0.3:
-            mood = "😎"
-            sentence = f"{ticker} is coasting with good vibes."
-        elif avg_sentiment < -0.3:
-            mood = "🧨"
-            sentence = f"Bad press brewing for {ticker}."
-        elif abs(pct_change) < 0.3 and not headlines:
-            mood = "💤"
-            sentence = f"{ticker} is chilling today."
-
-        # Create mood history for last 7 days (simplified)
-        mood_history = []
-        for i in range(hist_days):
-            day_pct_change = ((hist["Close"][i+1] - hist["Close"][i]) / hist["Close"][i]) * 100
-            if day_pct_change > 2:
-                mood_history.append("🤑")
-            elif day_pct_change < -2:
-                mood_history.append("😱")
-            else:
-                mood_history.append("😐")
-
-        return {
+        mood_results.append({
             "ticker": ticker,
-            "mood": mood,
-            "sentence": sentence,
+            "emoji": mood_emoji,
+            "sentence": mood_sentence,
             "pct_change": pct_change,
             "volume_spike": volume_spike,
-            "market_open": market_open_now,
+            "sentiment": avg_sentiment,
+            "score": mood_score,
             "headlines": headlines,
-            "mood_history": mood_history
-        }
-
+            "history_df": mood_hist_df
+        })
     except Exception as e:
-        return None
+        st.warning(f"Error fetching data for {ticker}: {e}")
 
-# ------------------------
-# Streamlit App UI
-# ------------------------
-
-st.set_page_config(page_title="Stock Mood of the Day", layout="wide")
-
-st.title("📈 Stock Mood of the Day")
-
-# Input tickers (comma separated)
-user_input = st.text_input("Enter 1-3 stock tickers (NYSE/NASDAQ), separated by commas:", "AAPL, TSLA")
-
-tickers = [t.strip().upper() for t in user_input.split(",") if t.strip()][:3]
-
-# Fetch moods for tickers
-results = []
-for t in tickers:
-    mood_data = get_stock_mood(t)
-    if mood_data:
-        results.append(mood_data)
-    else:
-        st.warning(f"Could not fetch data for ticker: {t}")
-
-# Display mood cards
-if results:
-    cols = st.columns(len(results))
-    for i, data in enumerate(results):
-        with cols[i]:
-            st.markdown(f"### {data['ticker']} {data['mood']}")
-            st.markdown(f"**Mood:** {data['sentence']}")
-            st.markdown(f"**Price change:** {data['pct_change']:.2f}%")
-            st.markdown(f"**Volume spike:** {data['volume_spike']:.2f}x")
-
-            # Headlines with color-coded sentiment
-            st.markdown("**Recent Headlines:**")
-            for headline in data["headlines"]:
-                sentiment = get_sentiment(headline)
-                color = "green" if sentiment > 0.3 else "red" if sentiment < -0.3 else "gray"
-                st.markdown(f"<span style='color:{color}'>{headline}</span>", unsafe_allow_html=True)
-
-            # Market open status
-            if data["market_open"]:
-                st.success("📈 Market is open — live mood.")
-            else:
-                st.warning("📉 Market is closed — last close mood.")
-
-            # Mood history graph (emojis timeline)
-            st.markdown("**Mood History (last 7 days):**")
-            # Simple emoji timeline
-            emoji_str = "  ".join(data["mood_history"])
-            st.markdown(f"<p style='font-size:30px'>{emoji_str}</p>", unsafe_allow_html=True)
-
-else:
+if not mood_results:
     st.info("Enter valid stock tickers above to see their moods.")
+    st.stop()
+
+# Determine the winner of the battle (highest mood score)
+winner = max(mood_results, key=lambda x: x["score"]) if len(mood_results) > 1 else None
+
+cols = st.columns(len(mood_results))
+for idx, data in enumerate(mood_results):
+    with cols[idx]:
+        border = "3px solid gold" if winner and data["ticker"] == winner["ticker"] and len(mood_results) > 1 else "1px solid #ddd"
+        st.markdown(f"""
+            <div style="
+                border:{border};
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 2px 5px rgb(0 0 0 / 0.1);
+                text-align:center;
+                ">
+                <h2>{data['ticker']} {data['emoji']} {'🏆' if winner and data['ticker'] == winner['ticker'] and len(mood_results) > 1 else ''}</h2>
+                <p style="font-weight:bold;">{data['sentence']}</p>
+                <p>Price change: {data['pct_change']:.2f}%</p>
+                <p>Volume spike: {data['volume_spike']:.2f}x</p>
+                <p>Avg sentiment: {data['sentiment']:.2f}</p>
+                <p><em>{'Market is open — live mood.' if market_open_now else 'Market is closed — last close mood.'}</em></p>
+                <h4>Recent Headlines:</h4>
+                <ul style="text-align:left; padding-left:20px;">
+        """, unsafe_allow_html=True)
+
+        for headline in data["headlines"]:
+            sent_score = get_sentiment(headline)
+            color = "green" if sent_score > 0.3 else "red" if sent_score < -0.3 else "gray"
+            st.markdown(f'<li style="color:{color};">{headline}</li>', unsafe_allow_html=True)
+
+        st.markdown("</ul>", unsafe_allow_html=True)
+        st.markdown("### Mood History (last 7 days)")
+        st.altair_chart(altair_mood_chart(data["history_df"]), use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # Footer
 st.markdown("---")
