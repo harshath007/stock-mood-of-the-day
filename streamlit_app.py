@@ -23,7 +23,7 @@ def is_market_open():
     now = datetime.now(pytz.timezone("US/Eastern"))
     weekday = now.weekday()
     market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
-    market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
+    market_close = now.replace(hour=16, minute=0, microsecond=0)
     return weekday < 5 and market_open <= now <= market_close
 
 @st.cache_data(show_spinner=False)
@@ -87,54 +87,69 @@ def altair_mood_chart(df):
         x=alt.X('date:T', title='Date', axis=alt.Axis(format='%m-%d')),
         y=alt.value(50)
     )
-    points = base.mark_text(fontSize=30).encode(
+    points = base.mark_text(fontSize=28).encode(
         text='emoji',
         tooltip=[
             alt.Tooltip('date', title='Date'),
             alt.Tooltip('pct_change', title='% Change', format=".2f")
         ]
     )
-    rule = base.mark_rule(color='lightgray')
-    chart = (rule + points).properties(height=80)
-    return chart
+    return (base.mark_rule(color='#e0e0e0') + points).properties(height=80)
 
 def plot_price_chart(hist):
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=hist.index,
         y=hist['Close'],
-        mode='lines+markers',
-        name='Close Price',
-        line=dict(color='royalblue', width=2)
+        mode='lines',
+        line=dict(color='#10b981', width=2),
+        name='Close Price'
     ))
-    fig.update_layout(title='Stock Price Trend', xaxis_title='Date', yaxis_title='Price (USD)', height=300)
+    fig.update_layout(
+        showlegend=False,
+        margin=dict(t=10, b=10, l=0, r=0),
+        xaxis_title='Date',
+        yaxis_title='USD',
+        height=250,
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        xaxis=dict(showgrid=False),
+        yaxis=dict(showgrid=True, gridcolor='#f0f0f0')
+    )
     return fig
 
 # ------------- Streamlit UI -------------
 
-st.set_page_config(page_title="Stock Mood of the Day", layout="wide")
-st.title("📈 Stock Mood of the Day")
+st.set_page_config(page_title="Stock Mood", layout="wide")
+st.markdown("""
+    <style>
+        .main, .block-container {
+            padding: 1rem;
+        }
+        h1, h2, h3, h4, p {
+            font-family: 'Segoe UI', sans-serif;
+        }
+        ul {
+            padding-left: 1.2rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# Surprise Me button
-if st.button("🎲 Surprise Me!"):
-    random_ticker = random.choice(POPULAR_TICKERS)
-    st.session_state["tickers"] = [random_ticker]
+st.title("📊 Stock Mood of the Day")
 
-# Input box or load from session_state
+if st.button("🎲 Surprise Me"):
+    st.session_state["tickers"] = [random.choice(POPULAR_TICKERS)]
+
 if "tickers" not in st.session_state:
     st.session_state["tickers"] = []
 
-user_input = st.text_input(
-    "Enter 1-3 stock tickers (NYSE/NASDAQ), separated by commas:",
-    value=", ".join(st.session_state["tickers"]) if st.session_state["tickers"] else ""
-)
-
+user_input = st.text_input("Enter up to 3 tickers:", value=", ".join(st.session_state["tickers"]))
 tickers = [t.strip().upper() for t in user_input.split(",") if t.strip()][:3]
 st.session_state["tickers"] = tickers
 
 market_open_now = is_market_open()
-
 mood_results = []
+
 for ticker in tickers:
     try:
         hist = get_stock_data(ticker)
@@ -172,49 +187,33 @@ for ticker in tickers:
         st.warning(f"Error fetching data for {ticker}: {e}")
 
 if not mood_results:
-    st.info("Enter valid stock tickers above to see their moods.")
+    st.info("Enter valid stock tickers to see their moods.")
     st.stop()
 
-# Determine the winner of the battle (highest mood score)
 winner = max(mood_results, key=lambda x: x["score"]) if len(mood_results) > 1 else None
-
 cols = st.columns(len(mood_results))
+
 for idx, data in enumerate(mood_results):
     with cols[idx]:
-        border = "3px solid gold" if winner and data["ticker"] == winner["ticker"] and len(mood_results) > 1 else "1px solid #ddd"
-        st.markdown(f"""
-            <div style="
-                border:{border};
-                border-radius: 12px;
-                padding: 20px;
-                box-shadow: 0 2px 5px rgb(0 0 0 / 0.1);
-                text-align:center;
-                background-color: #f9f9f9;
-                margin-bottom: 20px;
-                ">
-                <h2>{data['ticker']} {data['emoji']} {'🏆' if winner and data['ticker'] == winner['ticker'] and len(mood_results) > 1 else ''}</h2>
-                <p style="font-weight:bold;">{data['sentence']}</p>
-                <p>Price change: {data['pct_change']:.2f}%</p>
-                <p>Volume spike: {data['volume_spike']:.2f}x</p>
-                <p>Avg sentiment: {data['sentiment']:.2f}</p>
-                <p><em>{'Market is open — live mood.' if market_open_now else 'Market is closed — last close mood.'}</em></p>
-                <h4>Recent Headlines:</h4>
-                <ul style="text-align:left; padding-left:20px;">
-        """, unsafe_allow_html=True)
+        highlight = data["ticker"] == winner["ticker"] if winner else False
+        with st.container():
+            st.markdown(f"### {data['ticker']} {data['emoji']} {'🏆' if highlight else ''}")
+            st.caption(data['sentence'])
+            st.metric("Price %", f"{data['pct_change']:.2f}%")
+            st.metric("Volume x", f"{data['volume_spike']:.2f}")
+            st.metric("Sentiment", f"{data['sentiment']:.2f}")
+            st.caption("📅 " + ("Live mood" if market_open_now else "Based on last close"))
+            st.write("##### Headlines")
+            for headline in data["headlines"]:
+                score = get_sentiment(headline)
+                color = "green" if score > 0.3 else "red" if score < -0.3 else "gray"
+                st.markdown(f"<div style='color:{color}'>{headline}</div>", unsafe_allow_html=True)
+            st.write("##### Mood History")
+            st.altair_chart(altair_mood_chart(data["history_df"]), use_container_width=True)
+            st.write("##### Price Trend")
+            st.plotly_chart(plot_price_chart(data["hist_data"]), use_container_width=True)
 
-        for headline in data["headlines"]:
-            sent_score = get_sentiment(headline)
-            color = "green" if sent_score > 0.3 else "red" if sent_score < -0.3 else "gray"
-            st.markdown(f'<li style="color:{color};">{headline}</li>', unsafe_allow_html=True)
+st.markdown("""---
+<p style='text-align:center;'>Made with ❤️ | Data via Yahoo & Google News</p>""", unsafe_allow_html=True)
 
-        st.markdown("</ul>", unsafe_allow_html=True)
-        st.markdown("### Mood History (last 7 days)")
-        st.altair_chart(altair_mood_chart(data["history_df"]), use_container_width=True)
-        st.markdown("### Stock Price Trend")
-        st.plotly_chart(plot_price_chart(data["hist_data"]), use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-# Footer
-st.markdown("---")
-st.markdown("Made with ❤️ by Stock Mood of the Day | Data from Yahoo Finance & Google News RSS")
 
