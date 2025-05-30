@@ -216,4 +216,3 @@ for idx, data in enumerate(mood_results):
 st.markdown("""---
 <p style='text-align:center;'>Made with ❤️ | Data via Yahoo & Google News</p>""", unsafe_allow_html=True)
 
-
