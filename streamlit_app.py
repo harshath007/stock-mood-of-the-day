@@ -18,7 +18,6 @@ POPULAR_TICKERS = [
 
 analyzer = SentimentIntensityAnalyzer()
 
-# Market hours checker
 def is_market_open():
     now = datetime.now(pytz.timezone("US/Eastern"))
     weekday = now.weekday()
@@ -129,13 +128,30 @@ st.markdown("""
         h1, h2, h3, h4, p {
             font-family: 'Segoe UI', sans-serif;
         }
-        ul {
-            padding-left: 1.2rem;
+        .stock-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .stock-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 1rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+            box-shadow: 0px 1px 3px rgba(0,0,0,0.05);
         }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("📊 Stock Mood of the Day")
+
+st.markdown("""
+    Curious how stocks are *feeling* today?
+    Get a quick pulse of the market with sentiment, volume, price, and mood — all in one glance.
+""")
 
 if st.button("🎲 Surprise Me"):
     st.session_state["tickers"] = [random.choice(POPULAR_TICKERS)]
@@ -190,29 +206,23 @@ if not mood_results:
     st.info("Enter valid stock tickers to see their moods.")
     st.stop()
 
-winner = max(mood_results, key=lambda x: x["score"]) if len(mood_results) > 1 else None
-cols = st.columns(len(mood_results))
+sorted_results = sorted(mood_results, key=lambda x: x["score"], reverse=True)
+top7 = sorted_results[:7]
+bottom7 = sorted_results[-7:]
 
-for idx, data in enumerate(mood_results):
-    with cols[idx]:
-        highlight = data["ticker"] == winner["ticker"] if winner else False
-        with st.container():
-            st.markdown(f"### {data['ticker']} {data['emoji']} {'🏆' if highlight else ''}")
-            st.caption(data['sentence'])
-            st.metric("Price %", f"{data['pct_change']:.2f}%")
-            st.metric("Volume x", f"{data['volume_spike']:.2f}")
-            st.metric("Sentiment", f"{data['sentiment']:.2f}")
-            st.caption("📅 " + ("Live mood" if market_open_now else "Based on last close"))
-            st.write("##### Headlines")
-            for headline in data["headlines"]:
-                score = get_sentiment(headline)
-                color = "green" if score > 0.3 else "red" if score < -0.3 else "gray"
-                st.markdown(f"<div style='color:{color}'>{headline}</div>", unsafe_allow_html=True)
-            st.write("##### Mood History")
-            st.altair_chart(altair_mood_chart(data["history_df"]), use_container_width=True)
-            st.write("##### Price Trend")
-            st.plotly_chart(plot_price_chart(data["hist_data"]), use_container_width=True)
+st.subheader("🏆 Top 7 Mood Stocks")
+top_cols = st.columns(len(top7))
+for idx, data in enumerate(top7):
+    with top_cols[idx]:
+        st.metric(label=f"{data['ticker']} {data['emoji']}", value=f"{data['pct_change']:.2f}%")
+        st.caption(data["sentence"])
+
+st.subheader("🔻 Bottom 7 Mood Stocks")
+bottom_cols = st.columns(len(bottom7))
+for idx, data in enumerate(bottom7):
+    with bottom_cols[idx]:
+        st.metric(label=f"{data['ticker']} {data['emoji']}", value=f"{data['pct_change']:.2f}%")
+        st.caption(data["sentence"])
 
 st.markdown("""---
 <p style='text-align:center;'>Made with ❤️ | Data via Yahoo & Google News</p>""", unsafe_allow_html=True)
-
