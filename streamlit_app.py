@@ -20,66 +20,176 @@ analyzer = SentimentIntensityAnalyzer()
 # Custom CSS for professional UI
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     
-    .main {
-        font-family: 'Inter', sans-serif;
+    /* Root Variables */
+    :root {
+        --primary-blue: #2563eb;
+        --primary-purple: #7c3aed;
+        --success-green: #059669;
+        --danger-red: #dc2626;
+        --warning-orange: #d97706;
+        --neutral-gray: #64748b;
+        --bg-light: #f8fafc;
+        --bg-white: #ffffff;
+        --text-dark: #0f172a;
+        --text-medium: #334155;
+        --text-light: #64748b;
+        --border-light: #e2e8f0;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
     }
     
+    /* Global Styles */
     .stApp {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
+    .main {
+        padding: 1rem 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: var(--bg-light);
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--neutral-gray);
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--text-medium);
+    }
+    
+    /* Enhanced Cards */
     .metric-card {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border-radius: 15px;
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
         padding: 1.5rem;
         margin: 0.5rem 0;
-        border-left: 4px solid #3b82f6;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        transition: transform 0.2s ease;
+        border: 1px solid var(--border-light);
+        border-left: 4px solid var(--primary-blue);
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--primary-blue), var(--primary-purple));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
     }
     
     .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-xl);
+        border-left-color: var(--primary-purple);
     }
     
+    .metric-card:hover::before {
+        transform: scaleX(1);
+    }
+    
+    /* Enhanced News Cards */
     .news-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.2rem;
-        margin: 0.8rem 0;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        transition: all 0.2s ease;
+        background: var(--bg-white);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border: 1px solid var(--border-light);
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .news-card::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-blue), var(--primary-purple));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
     }
     
     .news-card:hover {
-        border-color: #3b82f6;
-        box-shadow: 0 5px 20px rgba(59, 130, 246, 0.1);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary-blue);
     }
     
+    .news-card:hover::after {
+        transform: scaleX(1);
+    }
+    
+    /* Enhanced Ticker Banner */
     .ticker-banner {
-        background: linear-gradient(90deg, #1e293b, #334155, #475569);
+        background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
         color: white;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
+        padding: 1.5rem;
+        border-radius: 16px;
+        margin: 1.5rem 0;
         overflow: hidden;
         position: relative;
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .ticker-banner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        animation: shimmer 3s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
     }
     
     .ticker-content {
         display: flex;
         white-space: nowrap;
         animation: scroll 120s linear infinite;
+        align-items: center;
     }
     
     .ticker-item {
         margin-right: 3rem;
         font-weight: 600;
         font-size: 1.1rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
     
     @keyframes scroll {
@@ -87,86 +197,411 @@ st.markdown("""
         100% { transform: translateX(-100%); }
     }
     
+    /* Enhanced Headers */
     .section-header {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 1rem;
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--text-dark);
+        margin-bottom: 1.5rem;
         text-align: center;
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        position: relative;
+        letter-spacing: -0.025em;
+    }
+    
+    .section-header::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100px;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-blue), var(--primary-purple));
+        border-radius: 2px;
     }
     
     .subsection-header {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #334155;
-        margin: 2rem 0 1rem 0;
-        border-bottom: 2px solid #e2e8f0;
-        padding-bottom: 0.5rem;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-medium);
+        margin: 2.5rem 0 1.5rem 0;
+        border-bottom: 2px solid var(--border-light);
+        padding-bottom: 0.75rem;
+        position: relative;
     }
     
+    .subsection-header::before {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 60px;
+        height: 2px;
+        background: var(--primary-blue);
+    }
+    
+    /* Enhanced Sentiment Badges */
     .sentiment-positive {
-        color: #059669;
-        background: #d1fae5;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-weight: 600;
-    }
-    
-    .sentiment-negative {
-        color: #dc2626;
-        background: #fee2e2;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-weight: 600;
-    }
-    
-    .sentiment-neutral {
-        color: #64748b;
-        background: #f1f5f9;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-weight: 600;
-    }
-    
-    .market-status {
-        display: inline-block;
+        color: var(--success-green);
+        background: linear-gradient(135deg, #d1fae5, #a7f3d0);
         padding: 0.5rem 1rem;
         border-radius: 25px;
         font-weight: 600;
+        font-size: 0.875rem;
+        border: 1px solid #86efac;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.05em;
+    }
+    
+    .sentiment-negative {
+        color: var(--danger-red);
+        background: linear-gradient(135deg, #fee2e2, #fecaca);
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        border: 1px solid #fca5a5;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .sentiment-neutral {
+        color: var(--neutral-gray);
+        background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        border: 1px solid #cbd5e1;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    /* Enhanced Market Status */
+    .market-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 30px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-size: 0.875rem;
+        box-shadow: var(--shadow-md);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .market-status::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        animation: pulse-light 2s infinite;
+    }
+    
+    @keyframes pulse-light {
+        0%, 100% { left: -100%; }
+        50% { left: 100%; }
     }
     
     .market-open {
-        background: #10b981;
+        background: linear-gradient(135deg, var(--success-green), #10b981);
         color: white;
+        animation: pulse-glow 2s infinite;
     }
     
     .market-closed {
-        background: #ef4444;
+        background: linear-gradient(135deg, var(--danger-red), #ef4444);
         color: white;
     }
     
-    .performance-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); }
+        50% { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); }
     }
     
-    .global-market-card {
-        background: linear-gradient(135deg, #fef7ff 0%, #f3e8ff 100%);
-        border-radius: 15px;
+    /* Enhanced Performance Cards */
+    .performance-card {
+        background: linear-gradient(145deg, var(--bg-white) 0%, var(--bg-light) 100%);
+        border-radius: 16px;
         padding: 1.5rem;
         margin: 1rem 0;
-        border-left: 4px solid #8b5cf6;
-        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.1);
+        border: 1px solid var(--border-light);
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .performance-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, var(--primary-blue), var(--primary-purple));
+        transition: width 0.3s ease;
+    }
+    
+    .performance-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .performance-card:hover::before {
+        width: 8px;
+    }
+    
+    /* Enhanced Global Market Cards */
+    .global-market-card {
+        background: linear-gradient(145deg, #fefbff 0%, #f3e8ff 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border: 1px solid #e9d5ff;
+        border-left: 4px solid var(--primary-purple);
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .global-market-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 0;
+        height: 100%;
+        background: linear-gradient(180deg, var(--primary-purple), #8b5cf6);
+        transition: width 0.3s ease;
+    }
+    
+    .global-market-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .global-market-card:hover::after {
+        width: 4px;
+    }
+    
+    /* Enhanced Sidebar Styling */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+        border-radius: 0 16px 16px 0;
+        border-right: 1px solid var(--border-light);
+    }
+    
+    /* Enhanced Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-md);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stButton > button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stButton > button:hover::before {
+        left: 100%;
+    }
+    
+    /* Enhanced Metrics */
+    [data-testid="metric-container"] {
+        background: linear-gradient(145deg, var(--bg-white), var(--bg-light));
+        border: 1px solid var(--border-light);
+        padding: 1.5rem;
+        border-radius: 16px;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s ease;
+    }
+    
+    [data-testid="metric-container"]:hover {
+        box-shadow: var(--shadow-md);
+        transform: translateY(-1px);
+    }
+    
+    /* Enhanced Text Inputs */
+    .stTextInput > div > div > input {
+        border-radius: 12px;
+        border: 2px solid var(--border-light);
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    /* Enhanced Select Boxes */
+    .stSelectbox > div > div {
+        border-radius: 12px;
+        border: 2px solid var(--border-light);
+        transition: all 0.3s ease;
+    }
+    
+    /* Loading Animations */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .metric-card, .news-card, .performance-card, .global-market-card {
+        animation: fadeIn 0.6s ease-out forwards;
+    }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+        .main {
+            padding: 0.5rem 1rem;
+        }
+        
+        .section-header {
+            font-size: 2rem;
+        }
+        
+        .subsection-header {
+            font-size: 1.5rem;
+        }
+        
+        .ticker-item {
+            font-size: 1rem;
+            margin-right: 2rem;
+        }
+        
+        .metric-card, .news-card, .performance-card {
+            padding: 1rem;
+        }
+    }
+    
+    /* Enhanced Progress Bar */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, var(--primary-blue), var(--primary-purple));
+        border-radius: 10px;
+    }
+    
+    /* Enhanced Expander */
+    .streamlit-expanderHeader {
+        background: linear-gradient(135deg, var(--bg-light), var(--bg-white));
+        border-radius: 12px;
+        border: 1px solid var(--border-light);
+        font-weight: 600;
+    }
+    
+    /* Toast Notifications */
+    .stAlert {
+        border-radius: 12px;
+        border: none;
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* Custom Tooltips */
+    [title] {
+        position: relative;
+    }
+    
+    [title]:hover::after {
+        content: attr(title);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--text-dark);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        white-space: nowrap;
+        z-index: 1000;
+        box-shadow: var(--shadow-lg);
+    }
+    
+    /* Improved spacing and typography */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        line-height: 1.2;
+        color: var(--text-dark);
+    }
+    
+    p {
+        line-height: 1.6;
+        color: var(--text-medium);
+    }
+    
+    /* Enhanced data tables */
+    .dataframe {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+    }
+    
+    .dataframe th {
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+        color: white;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .dataframe td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-light);
+    }
+    
+    .dataframe tr:hover {
+        background: var(--bg-light);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -270,6 +705,221 @@ def get_sentiment_label(score):
         return "Negative", "sentiment-negative"
     else:
         return "Neutral", "sentiment-neutral"
+
+def get_performance_emoji(change_pct):
+    """Get emoji based on stock performance"""
+    if change_pct >= 10:
+        return "🚀"  # Rocket - huge gains
+    elif change_pct >= 5:
+        return "🔥"  # Fire - strong gains
+    elif change_pct >= 2:
+        return "📈"  # Chart up - good gains
+    elif change_pct >= 0.5:
+        return "✅"  # Check - small gains
+    elif change_pct >= -0.5:
+        return "➡️"  # Arrow right - flat
+    elif change_pct >= -2:
+        return "⚠️"  # Warning - small losses
+    elif change_pct >= -5:
+        return "📉"  # Chart down - bad losses
+    elif change_pct >= -10:
+        return "💔"  # Broken heart - heavy losses
+    else:
+        return "💥"  # Explosion - crash
+
+def get_volume_emoji(volume_ratio):
+    """Get emoji based on volume activity"""
+    if volume_ratio >= 3:
+        return "🌋"  # Volcano - explosive volume
+    elif volume_ratio >= 2:
+        return "🔥"  # Fire - high volume
+    elif volume_ratio >= 1.5:
+        return "📊"  # Chart - elevated volume
+    elif volume_ratio >= 0.8:
+        return "📈"  # Normal volume
+    else:
+        return "💤"  # Sleeping - low volume
+
+def get_rsi_emoji(rsi):
+    """Get emoji based on RSI levels"""
+    if rsi >= 80:
+        return "🔴"  # Red circle - extremely overbought
+    elif rsi >= 70:
+        return "⚠️"  # Warning - overbought
+    elif rsi >= 60:
+        return "🟡"  # Yellow - getting high
+    elif rsi >= 40:
+        return "🟢"  # Green - neutral zone
+    elif rsi >= 30:
+        return "💚"  # Green heart - getting low
+    elif rsi >= 20:
+        return "🛒"  # Shopping cart - oversold
+    else:
+        return "💎"  # Diamond - deep value
+
+def get_market_cap_emoji(market_cap):
+    """Get emoji based on market cap size"""
+    if market_cap >= 1000000000000:  # $1T+
+        return "👑"  # Crown - mega cap
+    elif market_cap >= 200000000000:  # $200B+
+        return "🏰"  # Castle - large cap
+    elif market_cap >= 10000000000:   # $10B+
+        return "🏢"  # Office building - mid cap
+    elif market_cap >= 2000000000:    # $2B+
+        return "🏠"  # House - small cap
+    else:
+        return "🏚️"  # Shack - micro cap
+
+def get_sentiment_emoji(sentiment_score):
+    """Get emoji based on news sentiment"""
+    if sentiment_score >= 0.5:
+        return "😍"  # Heart eyes - very positive
+    elif sentiment_score >= 0.3:
+        return "😊"  # Happy - positive
+    elif sentiment_score >= 0.1:
+        return "🙂"  # Slight smile - mildly positive
+    elif sentiment_score >= -0.1:
+        return "😐"  # Neutral face - neutral
+    elif sentiment_score >= -0.3:
+        return "😕"  # Worried - mildly negative
+    elif sentiment_score >= -0.5:
+        return "😞"  # Sad - negative
+    else:
+        return "😱"  # Screaming - very negative
+
+def calculate_trading_prediction(hist, info=None):
+    """
+    Calculate trading prediction based on technical indicators
+    This is for educational purposes only and not financial advice
+    """
+    if hist is None or hist.empty or len(hist) < 30:
+        return {
+            "signal": "INSUFFICIENT_DATA",
+            "confidence": 0,
+            "reasoning": "Not enough historical data for analysis",
+            "prediction_emoji": "❓"
+        }
+    
+    try:
+        # Calculate indicators similar to the trading strategy
+        close_prices = hist['Close']
+        
+        # EMA (20-period)
+        ema_20 = close_prices.ewm(span=20).mean()
+        
+        # Triple EMA (TEMA) approximation using 30-period
+        ema1 = close_prices.ewm(span=30).mean()
+        ema2 = ema1.ewm(span=30).mean()
+        ema3 = ema2.ewm(span=30).mean()
+        tema = 3 * ema1 - 3 * ema2 + ema3
+        
+        # RSI calculation
+        delta = close_prices.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        # Simple ADX approximation using price momentum
+        high_low = hist['High'] - hist['Low']
+        high_close = abs(hist['High'] - close_prices.shift())
+        low_close = abs(hist['Low'] - close_prices.shift())
+        true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+        atr = true_range.rolling(14).mean()
+        
+        # Get latest values
+        current_ema = ema_20.iloc[-1] if not ema_20.empty else 0
+        current_tema = tema.iloc[-1] if not tema.empty else 0
+        current_rsi = rsi.iloc[-1] if not rsi.empty else 50
+        current_price = close_prices.iloc[-1]
+        
+        # Calculate price momentum
+        if len(close_prices) >= 5:
+            price_momentum = (current_price - close_prices.iloc[-5]) / close_prices.iloc[-5] * 100
+        else:
+            price_momentum = 0
+            
+        # Prediction logic based on strategy conditions
+        confidence = 0
+        reasoning_parts = []
+        
+        # EMA > TEMA (upward trend)
+        if current_ema > current_tema:
+            confidence += 30
+            reasoning_parts.append("Upward trend detected (EMA > TEMA)")
+        else:
+            reasoning_parts.append("Downward/sideways trend (EMA ≤ TEMA)")
+            
+        # RSI < 70 (not overbought)
+        if current_rsi < 70:
+            confidence += 25
+            if current_rsi < 30:
+                reasoning_parts.append("Oversold condition (RSI < 30) - potential bounce")
+                confidence += 10
+            else:
+                reasoning_parts.append("RSI in healthy range (< 70)")
+        else:
+            reasoning_parts.append("Overbought condition (RSI > 70)")
+            confidence -= 20
+            
+        # Price momentum
+        if price_momentum > 2:
+            confidence += 20
+            reasoning_parts.append("Strong positive momentum")
+        elif price_momentum > 0:
+            confidence += 10
+            reasoning_parts.append("Positive momentum")
+        else:
+            reasoning_parts.append("Negative momentum")
+            confidence -= 15
+            
+        # Volume trend
+        if len(hist) >= 10:
+            recent_volume = hist['Volume'].iloc[-5:].mean()
+            historical_volume = hist['Volume'].iloc[-20:-5].mean()
+            if recent_volume > historical_volume * 1.2:
+                confidence += 15
+                reasoning_parts.append("Increasing volume")
+            elif recent_volume < historical_volume * 0.8:
+                confidence -= 10
+                reasoning_parts.append("Decreasing volume")
+                
+        # Normalize confidence to 0-100
+        confidence = max(0, min(100, confidence))
+        
+        # Determine signal
+        if confidence >= 70:
+            signal = "STRONG_BUY"
+            prediction_emoji = "🚀"
+        elif confidence >= 55:
+            signal = "BUY" 
+            prediction_emoji = "📈"
+        elif confidence >= 45:
+            signal = "HOLD"
+            prediction_emoji = "➡️"
+        elif confidence >= 30:
+            signal = "SELL"
+            prediction_emoji = "📉"
+        else:
+            signal = "STRONG_SELL"
+            prediction_emoji = "💥"
+            
+        return {
+            "signal": signal,
+            "confidence": confidence,
+            "reasoning": " • ".join(reasoning_parts[:3]),  # Limit to top 3 reasons
+            "prediction_emoji": prediction_emoji,
+            "rsi": current_rsi,
+            "momentum": price_momentum
+        }
+        
+    except Exception as e:
+        return {
+            "signal": "ERROR",
+            "confidence": 0,
+            "reasoning": "Unable to calculate prediction",
+            "prediction_emoji": "❌"
+        }
 
 def calculate_performance_metrics(hist):
     if hist is None or hist.empty:
@@ -445,10 +1095,23 @@ def enhanced_sidebar():
         st.markdown('<div style="text-align: center; margin-bottom: 2rem;"><h1 style="color: #3b82f6;">📊 StockMood Pro</h1></div>', unsafe_allow_html=True)
         st.caption("Your friendly guide to the stock market")
         
+        # Stock search functionality
+        st.markdown("### 🔍 Stock Search")
+        search_ticker = st.text_input("Search any stock:", placeholder="Enter ticker (e.g., AAPL, MSFT)")
+        
+        if search_ticker and len(search_ticker) > 0:
+            search_ticker = search_ticker.upper().strip()
+            if st.button(f"📊 View {search_ticker}", key="search_btn"):
+                st.session_state['selected_stock'] = search_ticker
+                st.session_state['page_selection'] = "📈 Stock Analysis"
+        
+        st.markdown("---")
+        
         page = st.selectbox(
             "Navigate to:",
             ["🏠 Dashboard", "📈 Stock Analysis", "📰 News & Sentiment", "🌍 Global Markets", "🎓 Learning Center"],
-            index=0
+            index=0 if 'page_selection' not in st.session_state else 
+                  ["🏠 Dashboard", "📈 Stock Analysis", "📰 News & Sentiment", "🌍 Global Markets", "🎓 Learning Center"].index(st.session_state.get('page_selection', "🏠 Dashboard"))
         )
         
         st.markdown("---")
@@ -541,8 +1204,8 @@ def dashboard_page():
             prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
             change_pct = ((current - prev) / prev) * 100
             color = "#10b981" if change_pct >= 0 else "#ef4444"
-            arrow = "↑" if change_pct >= 0 else "↓"
-            ticker_items.append(f'<span class="ticker-item" style="color: {color}">{name}: {current:.2f} {arrow} {change_pct:.2f}%</span>')
+            perf_emoji = get_performance_emoji(change_pct)
+            ticker_items.append(f'<span class="ticker-item" style="color: {color}">{perf_emoji} {name}: {current:.2f} {change_pct:+.2f}%</span>')
     
     if ticker_items:
         ticker_html = f'<div class="ticker-banner"><div class="ticker-content">{"".join(ticker_items * 3)}</div></div>'
@@ -557,7 +1220,8 @@ def dashboard_page():
             current = spy_hist['Close'].iloc[-1]
             prev = spy_hist['Close'].iloc[-2] if len(spy_hist) > 1 else current
             change = ((current - prev) / prev) * 100
-            st.metric("S&P 500 (SPY)", f"${current:.2f}", f"{change:.2f}%")
+            perf_emoji = get_performance_emoji(change)
+            st.metric(f"{perf_emoji} S&P 500 (SPY)", f"${current:.2f}", f"{change:.2f}%")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
@@ -565,7 +1229,15 @@ def dashboard_page():
         vix_hist, _ = get_stock_data("^VIX", "5d")
         if vix_hist is not None and not vix_hist.empty:
             current = vix_hist['Close'].iloc[-1]
-            st.metric("Fear Index (VIX)", f"{current:.2f}", "Volatility Measure")
+            if current > 30:
+                vix_emoji = "😱"
+            elif current > 25:
+                vix_emoji = "😰"
+            elif current > 20:
+                vix_emoji = "😐"
+            else:
+                vix_emoji = "😌"
+            st.metric(f"{vix_emoji} Fear Index (VIX)", f"{current:.2f}", "Volatility Measure")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
@@ -575,7 +1247,8 @@ def dashboard_page():
             current = gold_hist['Close'].iloc[-1]
             prev = gold_hist['Close'].iloc[-2] if len(gold_hist) > 1 else current
             change = ((current - prev) / prev) * 100
-            st.metric("Gold (GLD)", f"${current:.2f}", f"{change:.2f}%")
+            gold_emoji = "💰" if change >= 0 else "📉"
+            st.metric(f"{gold_emoji} Gold (GLD)", f"${current:.2f}", f"{change:.2f}%")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col4:
@@ -583,7 +1256,10 @@ def dashboard_page():
         dxy_hist, _ = get_stock_data("UUP", "5d")
         if dxy_hist is not None and not dxy_hist.empty:
             current = dxy_hist['Close'].iloc[-1]
-            st.metric("USD Index (UUP)", f"${current:.2f}", "Dollar Strength")
+            prev = dxy_hist['Close'].iloc[-2] if len(dxy_hist) > 1 else current
+            change = ((current - prev) / prev) * 100
+            dollar_emoji = "💵" if change >= 0 else "💸"
+            st.metric(f"{dollar_emoji} USD Index (UUP)", f"${current:.2f}", f"{change:.2f}%")
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('<div class="subsection-header">🏭 Sector Performance</div>', unsafe_allow_html=True)
@@ -652,13 +1328,43 @@ def dashboard_page():
             st.markdown("**🟢 Top Gainers**")
             for _, row in gainers.iterrows():
                 change_color = "#10b981" if row["Change %"] >= 0 else "#ef4444"
+                perf_emoji = get_performance_emoji(row["Change %"])
+                volume_emoji = get_volume_emoji(row["Volume Ratio"])
+                rsi_emoji = get_rsi_emoji(row["RSI"])
+                
+                # Get prediction for this stock
+                hist, _ = get_stock_data(row['Ticker'], "3mo")
+                prediction = calculate_trading_prediction(hist)
+                
+                # Create clickable stock card
+                if st.button(f"{perf_emoji} {row['Ticker']}", key=f"gainer_{row['Ticker']}", help="Click to view detailed analysis"):
+                    st.session_state['selected_stock'] = row['Ticker']
+                    st.session_state['page_selection'] = "📈 Stock Analysis"
+                    st.rerun()
+                
                 st.markdown(f"""
                 <div class="performance-card">
-                    <strong>{row['Ticker']}</strong> - ${row['Price']:.2f}<br>
-                    <span style="color: {change_color}; font-weight: bold;">
-                        {row['Change %']:.2f}% 
-                    </span>
-                    <small>| RSI: {row['RSI']:.1f}</small>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${row['Price']:.2f}</strong><br>
+                            <span style="color: {change_color}; font-weight: bold;">
+                                {row['Change %']:.2f}% 
+                            </span><br>
+                            <small>{volume_emoji} Vol: {row['Volume Ratio']:.1f}x | {rsi_emoji} RSI: {row['RSI']:.1f}</small>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.2rem;">{prediction['prediction_emoji']}</div>
+                            <div style="font-size: 0.8rem; font-weight: bold; color: #64748b;">
+                                {prediction['signal'].replace('_', ' ')}
+                            </div>
+                            <div style="font-size: 0.7rem; color: #94a3b8;">
+                                {prediction['confidence']}% confidence
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #64748b; font-style: italic;">
+                        ⚠️ Prediction only - not financial advice
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
         
@@ -666,506 +1372,23 @@ def dashboard_page():
             st.markdown("**🔴 Top Losers**")
             for _, row in losers.iterrows():
                 change_color = "#10b981" if row["Change %"] >= 0 else "#ef4444"
+                perf_emoji = get_performance_emoji(row["Change %"])
+                volume_emoji = get_volume_emoji(row["Volume Ratio"])
+                rsi_emoji = get_rsi_emoji(row["RSI"])
+                
+                # Get prediction for this stock
+                hist, _ = get_stock_data(row['Ticker'], "3mo")
+                prediction = calculate_trading_prediction(hist)
+                
+                # Create clickable stock card
+                if st.button(f"{perf_emoji} {row['Ticker']}", key=f"loser_{row['Ticker']}", help="Click to view detailed analysis"):
+                    st.session_state['selected_stock'] = row['Ticker']
+                    st.session_state['page_selection'] = "📈 Stock Analysis"
+                    st.rerun()
+                
                 st.markdown(f"""
                 <div class="performance-card">
-                    <strong>{row['Ticker']}</strong> - ${row['Price']:.2f}<br>
-                    <span style="color: {change_color}; font-weight: bold;">
-                        {row['Change %']:.2f}%
-                    </span>
-                    <small>| RSI: {row['RSI']:.1f}</small>
-                </div>
-                """, unsafe_allow_html=True)
-
-def stock_analysis_page():
-    st.markdown('<div class="section-header">📈 Stock Analysis</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        ticker = st.text_input("Enter Stock Ticker:", value="AAPL", help="Enter any valid stock ticker (e.g., AAPL, MSFT, GOOGL)")
-    
-    with col2:
-        time_period = st.selectbox("Time Period:", ["1mo", "3mo", "6mo", "1y", "2y"], index=2)
-    
-    if ticker:
-        ticker = ticker.upper()
-        
-        hist, info = get_stock_data(ticker, time_period)
-        
-        if hist is not None and not hist.empty:
-            metrics = calculate_performance_metrics(hist)
-            
-            col1, col2, col3, col4, col5 = st.columns(5)
-            
-            with col1:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("Current Price", f"${metrics['current_price']:.2f}", f"{metrics['daily_change']:.2f}%")
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("52W High", f"${metrics['52_week_high']:.2f}")
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("52W Low", f"${metrics['52_week_low']:.2f}")
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            with col4:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                st.metric("RSI", f"{metrics['rsi']:.1f}")
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            with col5:
-                st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                vol_status = "High" if metrics['volume_ratio'] > 1.5 else "Normal"
-                st.metric("Volume", vol_status, f"{metrics['volume_ratio']:.1f}x avg")
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            chart = create_advanced_chart(hist, ticker)
-            if chart:
-                st.plotly_chart(chart, use_container_width=True)
-            
-            if info:
-                st.markdown('<div class="subsection-header">🏢 Company Information</div>', unsafe_allow_html=True)
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                    st.write(f"**Company:** {info.get('longName', 'N/A')}")
-                    st.write(f"**Sector:** {info.get('sector', 'N/A')}")
-                    st.write(f"**Industry:** {info.get('industry', 'N/A')}")
-                    st.write(f"**Market Cap:** ${info.get('marketCap', 0):,.0f}")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                    st.write(f"**P/E Ratio:** {info.get('trailingPE', 'N/A')}")
-                    st.write(f"**Dividend Yield:** {info.get('dividendYield', 0)*100:.2f}%" if info.get('dividendYield') else "**Dividend Yield:** N/A")
-                    st.write(f"**Beta:** {info.get('beta', 'N/A')}")
-                    st.write(f"**52W Change:** {((metrics['current_price'] - metrics['52_week_low']) / metrics['52_week_low'] * 100):.1f}%")
-                    st.markdown('</div>', unsafe_allow_html=True)
-                
-                if 'longBusinessSummary' in info:
-                    st.markdown('<div class="subsection-header">📋 Business Summary</div>', unsafe_allow_html=True)
-                    st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                    st.write(info['longBusinessSummary'])
-                    st.markdown('</div>', unsafe_allow_html=True)
-            
-            st.markdown('<div class="subsection-header">📰 Recent News & Sentiment</div>', unsafe_allow_html=True)
-            
-            news_articles = get_comprehensive_news(f"{ticker} stock", 8)
-            
-            if news_articles:
-                for article in news_articles:
-                    sentiment_label, sentiment_class = get_sentiment_label(article['sentiment'])
-                    
-                    st.markdown(f"""
-                    <div class="news-card">
-                        <h4 style="margin-bottom: 0.5rem; color: #1e293b;">{article['title']}</h4>
-                        <div style="margin-bottom: 0.8rem;">
-                            <span class="{sentiment_class}">{sentiment_label} ({article['sentiment']:.3f})</span>
-                            <span style="margin-left: 1rem; color: #64748b; font-size: 0.9rem;">
-                                {article['source']} • {article['published']}
-                            </span>
-                        </div>
-                        <p style="color: #475569; line-height: 1.5;">{article['summary']}</p>
-                        <a href="{article['link']}" target="_blank" style="color: #3b82f6; text-decoration: none;">
-                            Read full article →
-                        </a>
-                    </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.error(f"Could not fetch data for {ticker}. Please check the ticker symbol.")
-
-def news_page():
-    st.markdown('<div class="section-header">📰 Market News & Sentiment Analysis</div>', unsafe_allow_html=True)
-    
-    news_categories = {
-        "📊 Market Overview": "stock market news today",
-        "💰 Economic Indicators": "economic indicators GDP inflation",
-        "🏦 Federal Reserve": "federal reserve interest rates",
-        "🌍 Global Markets": "global markets international trading",
-        "⚡ Technology": "technology stocks FAANG",
-        "🏥 Healthcare": "healthcare stocks pharmaceuticals",
-        "⚡ Energy": "energy stocks oil gas",
-        "🏗️ Infrastructure": "infrastructure stocks utilities",
-        "💎 Commodities": "commodities gold silver oil",
-        "🏠 Real Estate": "real estate REIT housing market"
-    }
-    
-    selected_category = st.selectbox("Select News Category:", list(news_categories.keys()))
-    search_query = news_categories[selected_category]
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        custom_search = st.text_input("Or search custom topic:", placeholder="Enter your own search terms...")
-    with col2:
-        if st.button("🔍 Search"):
-            if custom_search:
-                search_query = custom_search
-    
-    with st.spinner("Fetching latest news and analyzing sentiment..."):
-        articles = get_comprehensive_news(search_query, 15)
-    
-    if articles:
-        sentiments = [article['sentiment'] for article in articles]
-        avg_sentiment = np.mean(sentiments)
-        positive_count = sum(1 for s in sentiments if s > 0.1)
-        negative_count = sum(1 for s in sentiments if s < -0.1)
-        neutral_count = len(sentiments) - positive_count - negative_count
-        
-        st.markdown('<div class="subsection-header">📊 Sentiment Overview</div>', unsafe_allow_html=True)
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            overall_label, _ = get_sentiment_label(avg_sentiment)
-            st.metric("Overall Sentiment", overall_label, f"Score: {avg_sentiment:.3f}")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Positive News", f"{positive_count}", f"{positive_count/len(articles)*100:.1f}%")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Negative News", f"{negative_count}", f"{negative_count/len(articles)*100:.1f}%")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Neutral News", f"{neutral_count}", f"{neutral_count/len(articles)*100:.1f}%")
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        sentiment_data = pd.DataFrame({
-            'Sentiment': ['Positive', 'Negative', 'Neutral'],
-            'Count': [positive_count, negative_count, neutral_count]
-        })
-        
-        fig = px.pie(
-            sentiment_data, 
-            values='Count', 
-            names='Sentiment',
-            color='Sentiment',
-            color_discrete_map={'Positive': '#10b981', 'Negative': '#ef4444', 'Neutral': '#64748b'},
-            title="News Sentiment Distribution"
-        )
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        st.markdown('<div class="subsection-header">📰 Latest Articles</div>', unsafe_allow_html=True)
-        
-        articles_sorted = sorted(articles, key=lambda x: abs(x['sentiment']), reverse=True)
-        
-        for i, article in enumerate(articles_sorted):
-            sentiment_label, sentiment_class = get_sentiment_label(article['sentiment'])
-            
-            intensity = abs(article['sentiment'])
-            if intensity > 0.5:
-                intensity_label = "Strong"
-            elif intensity > 0.3:
-                intensity_label = "Moderate"
-            else:
-                intensity_label = "Mild"
-            
-            st.markdown(f"""
-            <div class="news-card">
-                <h3 style="margin-bottom: 0.8rem; color: #1e293b; line-height: 1.3;">{article['title']}</h3>
-                <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                    <span class="{sentiment_class}">{sentiment_label} • {intensity_label}</span>
-                    <span style="color: #64748b; font-size: 0.9rem;">Score: {article['sentiment']:.3f}</span>
-                    <span style="color: #64748b; font-size: 0.9rem;">{article['source']}</span>
-                    <span style="color: #64748b; font-size: 0.9rem;">{article['published']}</span>
-                </div>
-                <p style="color: #475569; line-height: 1.6; margin-bottom: 1rem;">{article['summary']}</p>
-                <a href="{article['link']}" target="_blank" 
-                   style="color: #3b82f6; text-decoration: none; font-weight: 500;">
-                    Read full article →
-                </a>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.warning("No news articles found for the selected topic. Try a different search term.")
-
-def global_markets_page():
-    st.markdown('<div class="section-header">🌍 Global Markets Overview</div>', unsafe_allow_html=True)
-    
-    global_markets = get_global_markets()
-    
-    st.markdown('<div class="subsection-header">🏛️ Major Global Indices</div>', unsafe_allow_html=True)
-    
-    global_data = []
-    
-    with st.spinner("Loading global market data..."):
-        for symbol, name in global_markets.items():
-            hist, info = get_stock_data(symbol, "5d")
-            if hist is not None and not hist.empty:
-                current = hist['Close'].iloc[-1]
-                prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
-                change = ((current - prev) / prev) * 100
-                
-                global_data.append({
-                    "Market": name,
-                    "Symbol": symbol,
-                    "Price": current,
-                    "Change %": change,
-                    "Status": "🟢 Open" if change >= 0 else "🔴 Down"
-                })
-    
-    if global_data:
-        cols = st.columns(3)
-        
-        for i, market in enumerate(global_data):
-            col_idx = i % 3
-            with cols[col_idx]:
-                change_color = "#10b981" if market["Change %"] >= 0 else "#ef4444"
-                arrow = "↑" if market["Change %"] >= 0 else "↓"
-                
-                st.markdown(f"""
-                <div class="global-market-card">
-                    <h4 style="margin-bottom: 0.5rem; color: #1e293b;">{market['Market']}</h4>
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #1e293b; margin-bottom: 0.5rem;">
-                        {market['Price']:.2f}
-                    </div>
-                    <div style="color: {change_color}; font-weight: bold; font-size: 1.1rem;">
-                        {arrow} {market['Change %']:.2f}%
-                    </div>
-                    <div style="color: #64748b; font-size: 0.9rem; margin-top: 0.5rem;">
-                        {market['Symbol']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        global_df = pd.DataFrame(global_data)
-        
-        fig = px.bar(
-            global_df,
-            x="Market",
-            y="Change %",
-            color="Change %",
-            color_continuous_scale=["red", "yellow", "green"],
-            title="Global Markets Daily Performance",
-            text="Change %"
-        )
-        fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-        fig.update_layout(height=500, showlegend=False)
-        fig.update_xaxes(tickangle=45)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown('<div class="subsection-header">💱 Currency Markets</div>', unsafe_allow_html=True)
-    
-    currency_pairs = {
-        "EURUSD=X": "EUR/USD",
-        "GBPUSD=X": "GBP/USD", 
-        "USDJPY=X": "USD/JPY",
-        "USDCAD=X": "USD/CAD",
-        "AUDUSD=X": "AUD/USD"
-    }
-    
-    currency_data = []
-    
-    for symbol, name in currency_pairs.items():
-        hist, _ = get_stock_data(symbol, "5d")
-        if hist is not None and not hist.empty:
-            current = hist['Close'].iloc[-1]
-            prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
-            change = ((current - prev) / prev) * 100
-            currency_data.append({
-                "Pair": name,
-                "Rate": current,
-                "Change %": change
-            })
-    
-    if currency_data:
-        cols = st.columns(3)
-        for i, currency in enumerate(currency_data):
-            col_idx = i % 3
-            with cols[col_idx]:
-                change_color = "#10b981" if currency["Change %"] >= 0 else "#ef4444"
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h4 style="color: #1e293b;">{currency['Pair']}</h4>
-                    <div style="font-size: 1.3rem; font-weight: bold;">
-                        {currency['Rate']:.4f}
-                    </div>
-                    <div style="color: {change_color}; font-weight: bold;">
-                        {currency['Change %']:+.2f}%
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="subsection-header">🏗️ Commodities</div>', unsafe_allow_html=True)
-    
-    commodities = {
-        "GC=F": "Gold",
-        "SI=F": "Silver",
-        "CL=F": "Crude Oil",
-        "NG=F": "Natural Gas"
-    }
-    
-    commodity_data = []
-    
-    for symbol, name in commodities.items():
-        hist, _ = get_stock_data(symbol, "5d")
-        if hist is not None and not hist.empty:
-            current = hist['Close'].iloc[-1]
-            prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
-            change = ((current - prev) / prev) * 100
-            commodity_data.append({
-                "Commodity": name,
-                "Price": current,
-                "Change %": change
-            })
-    
-    if commodity_data:
-        commodity_df = pd.DataFrame(commodity_data)
-        
-        fig = px.bar(
-            commodity_df,
-            x="Commodity",
-            y="Change %",
-            color="Change %",
-            color_continuous_scale=["red", "yellow", "green"],
-            title="Commodities Performance",
-            text="Change %"
-        )
-        fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
-        fig.update_layout(height=400, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-
-def learning_center_page():
-    st.markdown('<div class="section-header">🎓 Learning Center</div>', unsafe_allow_html=True)
-    st.markdown("**Everything you need to know about investing, explained simply**")
-    
-    st.markdown('<div class="subsection-header">📚 Stock Market Basics</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        <div class="metric-card">
-        <h4>🏢 What Are Stocks?</h4>
-        <p>When you buy a stock, you're buying a tiny piece of a company. If the company does well, your piece becomes more valuable. If it struggles, your piece loses value.</p>
-        
-        <p><strong>Example:</strong> If you buy Apple stock, you own a small part of Apple. When Apple sells more iPhones and makes more money, your stock usually becomes worth more.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="metric-card">
-        <h4>📈 How Do Prices Change?</h4>
-        <p>Stock prices go up when more people want to buy than sell, and down when more want to sell than buy. It's like an auction!</p>
-        
-        <p><strong>What moves prices:</strong></p>
-        <ul>
-        <li>Company news (good earnings = up, bad news = down)</li>
-        <li>Economic news (interest rates, employment)</li>
-        <li>Investor emotions (fear and greed)</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="metric-card">
-        <h4>🎯 Different Types of Investments</h4>
-        <p><strong>Individual Stocks:</strong> Buying pieces of one company (riskier but higher potential)</p>
-        <p><strong>Index Funds:</strong> Buying tiny pieces of many companies at once (safer, steadier growth)</p>
-        <p><strong>ETFs:</strong> Like index funds but trade like stocks</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="metric-card">
-        <h4>⚖️ Risk vs. Reward</h4>
-        <p>Generally, the chance for higher returns comes with higher risk of losing money.</p>
-        
-        <p><strong>Lower Risk:</strong> Big, stable companies, index funds</p>
-        <p><strong>Higher Risk:</strong> Small companies, new industries, individual stock picks</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="subsection-header">📊 How to Read This Dashboard</div>', unsafe_allow_html=True)
-    
-    add_educational_tooltips()
-    
-    st.markdown('<div class="subsection-header">💰 Simple Investment Strategies</div>', unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        <div class="performance-card">
-        <h4>🐢 Conservative Approach</h4>
-        <p><strong>Goal:</strong> Steady, slow growth</p>
-        <p><strong>Strategy:</strong> Buy index funds, blue-chip stocks</p>
-        <p><strong>Risk:</strong> Low</p>
-        <p><strong>Example:</strong> 70% S&P 500 fund, 30% individual large companies</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="performance-card">
-        <h4>🚗 Balanced Approach</h4>
-        <p><strong>Goal:</strong> Moderate growth with some stability</p>
-        <p><strong>Strategy:</strong> Mix of index funds and individual stocks</p>
-        <p><strong>Risk:</strong> Medium</p>
-        <p><strong>Example:</strong> 50% index funds, 50% individual stocks you research</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="performance-card">
-        <h4>🚀 Growth Approach</h4>
-        <p><strong>Goal:</strong> Higher returns, accepting higher risk</p>
-        <p><strong>Strategy:</strong> Individual growth stocks, emerging sectors</p>
-        <p><strong>Risk:</strong> High</p>
-        <p><strong>Example:</strong> Tech stocks, small companies, sector bets</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="subsection-header">❌ Common Beginner Mistakes</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div class="news-card">
-    <h4 style="color: #dc2626;">Mistakes to Avoid:</h4>
-    <ul style="line-height: 1.8;">
-    <li><strong>Investing money you need soon:</strong> Only invest money you won't need for at least 5 years</li>
-    <li><strong>Putting everything in one stock:</strong> If that company fails, you lose everything</li>
-    <li><strong>Trying to time the market:</strong> Nobody can predict short-term price movements</li>
-    <li><strong>Panic selling:</strong> Markets go down sometimes - don't sell just because of fear</li>
-    <li><strong>Following hot tips:</strong> Do your own research instead of following trends</li>
-    <li><strong>Not having a plan:</strong> Know why you're investing and what your goals are</li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
-
-def main():
-    page = enhanced_sidebar()
-    
-    if page in ["🏠 Dashboard", "📈 Stock Analysis"]:
-        add_beginner_tips()
-    
-    if page == "🏠 Dashboard":
-        explain_market_status()
-    
-    if page == "🏠 Dashboard":
-        dashboard_page()
-    elif page == "📈 Stock Analysis":
-        stock_analysis_page()
-    elif page == "📰 News & Sentiment":
-        news_page()
-    elif page == "🌍 Global Markets":
-        global_markets_page()
-    elif page == "🎓 Learning Center":
-        learning_center_page()
-
-if __name__ == "__main__":
-    main()
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${row['Price']:.2f}</strong><br>
+                            <span style="color:
