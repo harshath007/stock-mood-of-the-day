@@ -7,6 +7,7 @@ import pytz
 import altair as alt
 import pandas as pd
 import plotly.graph_objects as go
+import random
 
 # ---------- Constants & Helpers -----------
 
@@ -87,21 +88,9 @@ def plot_price_chart(hist):
     )
     return fig
 
-def plot_mood_history(df):
-    chart = alt.Chart(df).mark_text(
-        align='center',
-        baseline='middle',
-        fontSize=24
-    ).encode(
-        x=alt.X('date:T', title='Date'),
-        y=alt.value(0),
-        text='emoji'
-    ).properties(height=50)
-    return chart
-
 # ----------- Streamlit UI -----------
 
-st.set_page_config(page_title="📊 Stock Mood App", layout="wide")
+st.set_page_config(page_title="📊 Stock Mood", layout="wide")
 
 st.markdown("""
     <style>
@@ -112,12 +101,11 @@ st.markdown("""
             white-space: nowrap;
             padding: 0.5rem;
             font-size: 1rem;
-            position: relative;
         }
         .ticker-content {
             display: inline-block;
             padding-left: 100%;
-            animation: ticker 60s linear infinite;
+            animation: ticker 90s linear infinite;  /* Slower */
         }
         .ticker-content span {
             margin-right: 3rem;
@@ -126,24 +114,20 @@ st.markdown("""
             0% { transform: translateX(0); }
             100% { transform: translateX(-100%); }
         }
-        @media (max-width: 768px) {
-            .stock-columns {
-                grid-template-columns: 1fr !important;
-            }
-        }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Stock Mood of the Day")
+st.title("🌞 Welcome to Stock Mood!")
+st.caption("Your interactive dashboard for stock vibes — perfect for casual and curious investors.")
+
+# Surprise me button
+with st.sidebar:
+    st.header("🎲 Surprise Me!")
+    if st.button("Show Me a Random Stock"):
+        st.session_state["random_pick"] = random.choice(get_top_50_stocks())
 
 # Load tickers
 TOP_TICKERS = get_top_50_stocks()
-
-# Sidebar search
-with st.sidebar:
-    st.header("🔍 Search Ticker")
-    search_ticker = st.text_input("Enter Ticker (e.g., AAPL)").upper()
-    show_history = st.checkbox("Show Mood History Chart")
 
 stock_moods = []
 quotron_items = []
@@ -160,7 +144,7 @@ for ticker in TOP_TICKERS:
 
         avg_volume = hist["Volume"][:-1].mean()
         today_volume = hist["Volume"][-1]
-        volume_spike = today_volume / avg_volume if avg_volume > 0 else 1
+        volume_spike = today_volume / avg_volume if avg_volume else 1
 
         headlines, sentiment = fetch_news_sentiment(ticker)
 
@@ -179,55 +163,43 @@ for ticker in TOP_TICKERS:
         quotron_items.append(f"{mood} <b>{ticker}</b> {pct_change:.2f}%")
 
     except Exception as e:
-        st.warning(f"⚠️ Error loading data for {ticker}: {e}")
         continue
 
-# Generate Quotron HTML (double the content for seamless loop)
+# Generate Quotron HTML (double items to loop smoothly)
 quotron_html = "<div class='ticker-bar'><div class='ticker-content'>" + " | ".join(quotron_items * 2) + "</div></div>"
 st.markdown(quotron_html, unsafe_allow_html=True)
 
-# Sort
+# Show top and bottom moods
 best_stocks = sorted(stock_moods, key=lambda x: x["score"], reverse=True)[:5]
 bad_stocks = sorted(stock_moods, key=lambda x: x["score"])[:5]
 
-# Top Moods
-st.header("🔥 Top Mood Stocks")
+st.subheader("🔥 Top Movers")
 cols = st.columns(5)
 for i, stock in enumerate(best_stocks):
     with cols[i]:
-        st.metric(label=f"{stock['mood']} {stock['ticker']}", value=f"{stock['pct_change']:.2f}%")
-        st.plotly_chart(plot_price_chart(stock['hist']), use_container_width=True)
-        for headline in stock["headlines"]:
-            st.caption(f"📰 {headline}")
-        if show_history:
-            st.altair_chart(plot_mood_history(build_mood_history_df(stock['hist'])), use_container_width=True)
+        if st.button(f"{stock['mood']} {stock['ticker']}", key=f"top_{i}"):
+            st.session_state["random_pick"] = stock['ticker']
+        st.metric(label="Change", value=f"{stock['pct_change']:.2f}%")
 
-# Worst Moods
-st.header("❄️ Worst Mood Stocks")
+st.subheader("❄️ Worst Performers")
 cols = st.columns(5)
 for i, stock in enumerate(bad_stocks):
     with cols[i]:
-        st.metric(label=f"{stock['mood']} {stock['ticker']}", value=f"{stock['pct_change']:.2f}%")
-        st.plotly_chart(plot_price_chart(stock['hist']), use_container_width=True)
-        for headline in stock["headlines"]:
-            st.caption(f"📰 {headline}")
-        if show_history:
-            st.altair_chart(plot_mood_history(build_mood_history_df(stock['hist'])), use_container_width=True)
+        if st.button(f"{stock['mood']} {stock['ticker']}", key=f"bad_{i}"):
+            st.session_state["random_pick"] = stock['ticker']
+        st.metric(label="Change", value=f"{stock['pct_change']:.2f}%")
 
-# Manual search view
-if search_ticker:
-    st.header(f"🔎 {search_ticker} Details")
+# Detail view for selected/random stock
+if "random_pick" in st.session_state:
+    ticker = st.session_state["random_pick"]
+    st.header(f"📈 {ticker} Details")
     try:
-        hist = get_stock_data(search_ticker)
-        headlines, sentiment = fetch_news_sentiment(search_ticker)
+        hist = get_stock_data(ticker)
+        headlines, sentiment = fetch_news_sentiment(ticker)
         st.plotly_chart(plot_price_chart(hist), use_container_width=True)
-        st.markdown(f"**News Sentiment**: {sentiment:.2f}")
         for headline in headlines:
             st.caption(f"📰 {headline}")
-        if show_history:
-            df = build_mood_history_df(hist)
-            st.altair_chart(plot_mood_history(df), use_container_width=True)
-    except Exception as e:
-        st.error(f"Could not load data for {search_ticker}: {e}")
+    except:
+        st.error("Failed to load stock data.")
 
-st.markdown("""---<p style='text-align:center;'>Made with ❤️ | Data via Yahoo & Google News</p>""", unsafe_allow_html=True)
+st.markdown("""---<p style='text-align:center;'>Made with ❤️ for curious minds | Data via Yahoo & Google News</p>""", unsafe_allow_html=True)
