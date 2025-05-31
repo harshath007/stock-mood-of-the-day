@@ -10,19 +10,12 @@ import plotly.graph_objects as go
 
 # ---------- Constants & Helpers -----------
 
-POPULAR_TICKERS = [
-    "AAPL", "TSLA", "MSFT", "GOOG", "AMZN", "NVDA", "META", "DIS",
-    "NFLX", "BA", "INTC", "AMD", "CRM", "PYPL", "SQ", "UBER", "SHOP"
-]
-
 analyzer = SentimentIntensityAnalyzer()
 
-def is_market_open():
-    now = datetime.now(pytz.timezone("US/Eastern"))
-    weekday = now.weekday()
-    market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
-    market_close = now.replace(hour=16, minute=0, microsecond=0)
-    return weekday < 5 and market_open <= now <= market_close
+@st.cache_data(show_spinner=False)
+def get_top_50_stocks():
+    sp500 = yf.Ticker("^GSPC")
+    return ["AAPL", "MSFT", "GOOG", "AMZN", "NVDA", "META", "TSLA", "JPM", "JNJ", "UNH", "HD", "PG", "MA", "V", "XOM", "CVX", "MRK", "PEP", "KO", "LLY", "ABBV", "AVGO", "BAC", "WMT", "ADBE", "TMO", "CSCO", "ORCL", "ABT", "COST", "MCD", "CRM", "NKE", "QCOM", "DHR", "ACN", "TXN", "LIN", "NEE", "AMD", "INTC", "UPS", "UNP", "MS", "PM", "RTX", "IBM", "AMGN", "CAT", "LMT"]
 
 @st.cache_data(show_spinner=False)
 def get_sentiment(text):
@@ -46,21 +39,17 @@ def get_stock_data(ticker, hist_days=7):
 def compute_mood_score(pct_change, volume_spike, sentiment):
     return pct_change * 2 + (volume_spike - 1) * 5 + sentiment * 10
 
-def get_mood(ticker, pct_change, volume_spike, sentiment):
-    if pct_change > 3:
-        return "🤑", f"Investors are vibing with {ticker}."
-    elif pct_change < -3:
-        return "😱", f"{ticker} is getting hammered today."
-    elif volume_spike > 2:
-        return "👀", f"Unusual activity around {ticker}."
-    elif sentiment > 0.3:
-        return "😎", f"{ticker} is coasting with good vibes."
-    elif sentiment < -0.3:
-        return "🧨", f"Bad press brewing for {ticker}."
-    elif abs(pct_change) < 0.3:
-        return "💤", f"{ticker} is chilling today."
+def get_mood(pct_change):
+    if pct_change > 5:
+        return "🚀"
+    elif pct_change > 1:
+        return "📈"
+    elif pct_change > -1:
+        return "😐"
+    elif pct_change > -5:
+        return "📉"
     else:
-        return "🤔", f"Mixed signals for {ticker}."
+        return "💥"
 
 def build_mood_history_df(hist):
     records = []
@@ -70,116 +59,77 @@ def build_mood_history_df(hist):
         close1 = hist["Close"].iloc[i]
         close2 = hist["Close"].iloc[i+1]
         pct_change = ((close2 - close1) / close1) * 100
-
-        if pct_change > 2:
-            emoji = "🤑"
-        elif pct_change < -2:
-            emoji = "😱"
-        else:
-            emoji = "😐"
+        emoji = get_mood(pct_change)
         records.append({"date": day2.strftime("%Y-%m-%d"), "pct_change": pct_change, "emoji": emoji})
     return pd.DataFrame(records)
 
-def altair_mood_chart(df):
-    base = alt.Chart(df).encode(
-        x=alt.X('date:T', title='Date', axis=alt.Axis(format='%m-%d')),
-        y=alt.value(50)
-    )
-    points = base.mark_text(fontSize=28).encode(
-        text='emoji',
-        tooltip=[
-            alt.Tooltip('date', title='Date'),
-            alt.Tooltip('pct_change', title='% Change', format=".2f")
-        ]
-    )
-    return (base.mark_rule(color='#e0e0e0') + points).properties(height=80)
-
 def plot_price_chart(hist):
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
+    fig.add_trace(go.Candlestick(
         x=hist.index,
-        y=hist['Close'],
-        mode='lines',
-        line=dict(color='#10b981', width=2),
-        name='Close Price'
+        open=hist['Open'],
+        high=hist['High'],
+        low=hist['Low'],
+        close=hist['Close'],
+        name='Candlestick'
     ))
     fig.update_layout(
-        showlegend=False,
+        xaxis_rangeslider_visible=False,
+        height=300,
         margin=dict(t=10, b=10, l=0, r=0),
-        xaxis_title='Date',
-        yaxis_title='USD',
-        height=250,
         paper_bgcolor='white',
-        plot_bgcolor='white',
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=True, gridcolor='#f0f0f0')
+        plot_bgcolor='white'
     )
     return fig
 
 # ------------- Streamlit UI -------------
 
-st.set_page_config(page_title="Stock Mood", layout="wide")
+st.set_page_config(page_title="📊 Stock Mood App", layout="wide")
+
 st.markdown("""
     <style>
-        .main, .block-container {
-            padding: 1rem;
-        }
-        h1, h2, h3, h4, p {
-            font-family: 'Segoe UI', sans-serif;
-        }
-        .stock-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-        .stock-box {
-            flex: 1;
-            min-width: 200px;
-            padding: 1rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            background-color: #f9f9f9;
-            box-shadow: 0px 1px 3px rgba(0,0,0,0.05);
-        }
         .ticker-bar {
-            white-space: nowrap;
-            overflow: hidden;
-            box-sizing: border-box;
             background: #111827;
             color: white;
+            overflow: hidden;
+            white-space: nowrap;
+            box-sizing: border-box;
             padding: 0.5rem;
             font-size: 1rem;
         }
         .ticker-content {
             display: inline-block;
             padding-left: 100%;
-            animation: ticker 25s linear infinite;
+            animation: ticker 30s linear infinite;
         }
         @keyframes ticker {
             0% { transform: translateX(0); }
             100% { transform: translateX(-100%); }
         }
+        .stock-columns {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+        .stock-box {
+            background-color: #f9f9f9;
+            padding: 1rem;
+            border-radius: 10px;
+            border: 1px solid #eee;
+        }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("📊 Stock Mood of the Day")
-st.markdown("""
-    Curious how stocks are *feeling* today?
-    Pick your favorites below to see their price moves, news sentiment, and mood emoji at a glance.
-""")
 
-if "tickers" not in st.session_state:
-    st.session_state["tickers"] = ["AAPL", "TSLA"]
+# Load top 50 tickers
+TOP_TICKERS = get_top_50_stocks()
 
-selected = st.multiselect("Select up to 3 stocks to explore:", options=POPULAR_TICKERS, default=st.session_state["tickers"])
-tickers = selected[:3]
-st.session_state["tickers"] = tickers
+# Create ticker data for Quotron
+quotron_html = "<div class='ticker-bar'><div class='ticker-content'>"
+stock_moods = []
 
-market_open_now = is_market_open()
-mood_results = []
-
-for ticker in tickers:
+for ticker in TOP_TICKERS:
     try:
         hist = get_stock_data(ticker)
         if hist.empty or len(hist) < 2:
@@ -193,42 +143,48 @@ for ticker in tickers:
         today_volume = hist["Volume"][-1]
         volume_spike = today_volume / avg_volume if avg_volume else 1
 
-        headlines, avg_sentiment = fetch_news_sentiment(ticker)
+        headlines, sentiment = fetch_news_sentiment(ticker)
 
-        mood_emoji, mood_sentence = get_mood(ticker, pct_change, volume_spike, avg_sentiment)
-        mood_score = compute_mood_score(pct_change, volume_spike, avg_sentiment)
-        mood_hist_df = build_mood_history_df(hist)
-
-        mood_results.append({
+        mood = get_mood(pct_change)
+        score = compute_mood_score(pct_change, volume_spike, sentiment)
+        stock_moods.append({
             "ticker": ticker,
-            "emoji": mood_emoji,
-            "sentence": mood_sentence,
             "pct_change": pct_change,
-            "volume_spike": volume_spike,
-            "sentiment": avg_sentiment,
-            "score": mood_score,
-            "headlines": headlines,
-            "history_df": mood_hist_df,
-            "hist_data": hist
+            "mood": mood,
+            "score": score,
+            "hist": hist,
+            "headlines": headlines
         })
+        quotron_html += f"<span style='margin-right:2rem;'>{mood} <b>{ticker}</b> {pct_change:.2f}%</span>"
     except:
         continue
 
-# Quotron ticker
-if mood_results:
-    ticker_html = "<div class='ticker-bar'><div class='ticker-content'>"
-    for data in mood_results:
-        ticker_html += f"<a href='?tickers={data['ticker']}' style='color:white; margin-right: 2rem;'>{data['emoji']} {data['ticker']} {data['pct_change']:.2f}%</a>"
-    ticker_html += "</div></div>"
-    st.markdown(ticker_html, unsafe_allow_html=True)
+quotron_html += "</div></div>"
+st.markdown(quotron_html, unsafe_allow_html=True)
 
-for data in mood_results:
-    with st.expander(f"📈 {data['ticker']} — {data['sentence']}"):
-        st.altair_chart(altair_mood_chart(data["history_df"]), use_container_width=True)
-        st.plotly_chart(plot_price_chart(data["hist_data"]), use_container_width=True)
-        st.markdown("**Latest Headlines:**")
-        for h in data["headlines"]:
-            st.markdown(f"- {h}")
+# Sort stocks by mood score
+best_stocks = sorted(stock_moods, key=lambda x: x["score"], reverse=True)[:5]
+bad_stocks = sorted(stock_moods, key=lambda x: x["score"])[:5]
+
+st.header("🔥 Top Mood Stocks")
+with st.container():
+    cols = st.columns(5)
+    for i, stock in enumerate(best_stocks):
+        with cols[i]:
+            st.metric(label=f"{stock['mood']} {stock['ticker']}", value=f"{stock['pct_change']:.2f}%")
+            st.plotly_chart(plot_price_chart(stock['hist']), use_container_width=True)
+            for headline in stock["headlines"]:
+                st.caption(f"📰 {headline}")
+
+st.header("❄️ Worst Mood Stocks")
+with st.container():
+    cols = st.columns(5)
+    for i, stock in enumerate(bad_stocks):
+        with cols[i]:
+            st.metric(label=f"{stock['mood']} {stock['ticker']}", value=f"{stock['pct_change']:.2f}%")
+            st.plotly_chart(plot_price_chart(stock['hist']), use_container_width=True)
+            for headline in stock["headlines"]:
+                st.caption(f"📰 {headline}")
 
 st.markdown("""---
 <p style='text-align:center;'>Made with ❤️ | Data via Yahoo & Google News</p>""", unsafe_allow_html=True)
