@@ -9,9 +9,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import numpy as np
-import requests
-from bs4 import BeautifulSoup
-import time
 import random
 
 # ---------- Configuration & Setup -----------
@@ -31,15 +28,6 @@ st.markdown("""
     
     .stApp {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    
-    .main-container {
-        background: white;
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 1rem 0;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        backdrop-filter: blur(10px);
     }
     
     .metric-card {
@@ -163,11 +151,6 @@ st.markdown("""
         color: white;
     }
     
-    .sidebar .stSelectbox > div > div {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border-radius: 10px;
-    }
-    
     .performance-card {
         background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         border-radius: 15px;
@@ -192,20 +175,17 @@ st.markdown("""
 
 @st.cache_data(ttl=300)
 def get_major_indices():
-    """Get major market indices"""
-    indices = {
+    return {
         "^GSPC": "S&P 500",
-        "^DJI": "Dow Jones",
+        "^DJI": "Dow Jones", 
         "^IXIC": "NASDAQ",
         "^RUT": "Russell 2000",
         "^VIX": "VIX"
     }
-    return indices
 
 @st.cache_data(ttl=300)
 def get_global_markets():
-    """Get global market indices"""
-    global_indices = {
+    return {
         "^FTSE": "FTSE 100 (UK)",
         "^GDAXI": "DAX (Germany)",
         "^FCHI": "CAC 40 (France)",
@@ -213,16 +193,12 @@ def get_global_markets():
         "^HSI": "Hang Seng (Hong Kong)",
         "000001.SS": "Shanghai Composite",
         "^AXJO": "ASX 200 (Australia)",
-        "^BVSP": "Bovespa (Brazil)",
-        "^MXX": "IPC (Mexico)",
-        "^OSEAX": "Oslo (Norway)"
+        "^BVSP": "Bovespa (Brazil)"
     }
-    return global_indices
 
 @st.cache_data(ttl=300)
 def get_sectors():
-    """Get sector ETFs"""
-    sectors = {
+    return {
         "XLK": "Technology",
         "XLF": "Financial",
         "XLV": "Healthcare", 
@@ -235,29 +211,20 @@ def get_sectors():
         "XLB": "Materials",
         "XLRE": "Real Estate"
     }
-    return sectors
 
 @st.cache_data(ttl=300)
 def get_top_stocks():
-    """Get comprehensive stock list"""
     return [
-        # Tech Giants
         "AAPL", "MSFT", "GOOG", "GOOGL", "AMZN", "TSLA", "META", "NVDA", "NFLX", "ADBE",
-        # Financials
         "JPM", "BAC", "WFC", "GS", "MS", "C", "BRK-B", "AXP", "USB", "PNC",
-        # Healthcare
         "JNJ", "UNH", "PFE", "ABBV", "MRK", "TMO", "ABT", "DHR", "BMY", "AMGN",
-        # Consumer
         "WMT", "PG", "KO", "PEP", "COST", "MCD", "NKE", "HD", "TGT", "SBUX",
-        # Industrial & Energy
         "BA", "CAT", "GE", "MMM", "XOM", "CVX", "COP", "SLB", "EOG", "KMI",
-        # Others
         "V", "MA", "DIS", "CRM", "ORCL", "IBM", "INTC", "AMD", "QCOM", "CSCO"
     ]
 
 @st.cache_data(ttl=1800)
 def get_stock_data(ticker, period="1mo"):
-    """Enhanced stock data fetching"""
     try:
         stock = yf.Ticker(ticker)
         hist = stock.history(period=period)
@@ -272,16 +239,13 @@ def get_stock_data(ticker, period="1mo"):
 
 @st.cache_data(ttl=1800)
 def get_comprehensive_news(query, max_articles=10):
-    """Get comprehensive news from multiple sources"""
     try:
-        # Google News RSS
         google_url = f"https://news.google.com/rss/search?q={query}&hl=en&gl=US&ceid=US:en"
         feed = feedparser.parse(google_url)
         
         articles = []
         for entry in feed.entries[:max_articles]:
             try:
-                # Extract sentiment
                 sentiment_score = analyzer.polarity_scores(entry.title)["compound"]
                 
                 articles.append({
@@ -300,7 +264,6 @@ def get_comprehensive_news(query, max_articles=10):
         return []
 
 def get_sentiment_label(score):
-    """Convert sentiment score to label and styling"""
     if score > 0.1:
         return "Positive", "sentiment-positive"
     elif score < -0.1:
@@ -309,25 +272,20 @@ def get_sentiment_label(score):
         return "Neutral", "sentiment-neutral"
 
 def calculate_performance_metrics(hist):
-    """Calculate comprehensive performance metrics"""
     if hist is None or hist.empty:
         return {}
     
     current_price = hist['Close'].iloc[-1]
     prev_price = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
     
-    # Performance calculations
     daily_change = ((current_price - prev_price) / prev_price) * 100
     
-    # Volatility (30-day rolling std)
-    volatility = hist['Close'].pct_change().rolling(30).std().iloc[-1] * 100
+    volatility = hist['Close'].pct_change().rolling(30).std().iloc[-1] * 100 if len(hist) > 30 else 0
     
-    # Volume analysis
     avg_volume = hist['Volume'].mean()
     current_volume = hist['Volume'].iloc[-1]
     volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1
     
-    # RSI calculation
     delta = hist['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
@@ -345,20 +303,17 @@ def calculate_performance_metrics(hist):
     }
 
 def create_advanced_chart(hist, ticker):
-    """Create advanced technical analysis chart"""
     if hist is None or hist.empty:
         return None
     
-    # Create subplots
     fig = make_subplots(
         rows=3, cols=1,
         shared_xaxes=True,
         vertical_spacing=0.05,
         subplot_titles=(f'{ticker} Price Chart', 'Volume', 'RSI'),
-        row_width=[0.2, 0.1, 0.1]
+        row_heights=[0.6, 0.2, 0.2]
     )
     
-    # Candlestick chart
     fig.add_trace(
         go.Candlestick(
             x=hist.index,
@@ -371,42 +326,37 @@ def create_advanced_chart(hist, ticker):
         row=1, col=1
     )
     
-    # Moving averages
-    ma20 = hist['Close'].rolling(20).mean()
-    ma50 = hist['Close'].rolling(50).mean()
+    if len(hist) > 20:
+        ma20 = hist['Close'].rolling(20).mean()
+        fig.add_trace(
+            go.Scatter(x=hist.index, y=ma20, line=dict(color='orange', width=1), name='MA20'),
+            row=1, col=1
+        )
     
-    fig.add_trace(
-        go.Scatter(x=hist.index, y=ma20, line=dict(color='orange', width=1), name='MA20'),
-        row=1, col=1
-    )
+    if len(hist) > 50:
+        ma50 = hist['Close'].rolling(50).mean()
+        fig.add_trace(
+            go.Scatter(x=hist.index, y=ma50, line=dict(color='blue', width=1), name='MA50'),
+            row=1, col=1
+        )
     
-    fig.add_trace(
-        go.Scatter(x=hist.index, y=ma50, line=dict(color='blue', width=1), name='MA50'),
-        row=1, col=1
-    )
-    
-    # Volume
     colors = ['red' if close < open else 'green' for close, open in zip(hist['Close'], hist['Open'])]
     fig.add_trace(
         go.Bar(x=hist.index, y=hist['Volume'], marker_color=colors, name='Volume'),
         row=2, col=1
     )
     
-    # RSI
-    delta = hist['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / loss
-    rsi = 100 - (100 / (1 + rs))
-    
-    fig.add_trace(
-        go.Scatter(x=hist.index, y=rsi, line=dict(color='purple', width=2), name='RSI'),
-        row=3, col=1
-    )
-    
-    # Add RSI overbought/oversold lines
-    fig.add_hline(y=70, line_dash="dash", line_color="red")
-    fig.add_hline(y=30, line_dash="dash", line_color="green")
+    if len(hist) > 14:
+        delta = hist['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        fig.add_trace(
+            go.Scatter(x=hist.index, y=rsi, line=dict(color='purple', width=2), name='RSI'),
+            row=3, col=1
+        )
     
     fig.update_layout(
         height=800,
@@ -418,7 +368,6 @@ def create_advanced_chart(hist, ticker):
     return fig
 
 def get_market_status():
-    """Check if market is open"""
     now = datetime.now(pytz.timezone('US/Eastern'))
     market_open = now.replace(hour=9, minute=30, second=0, microsecond=0)
     market_close = now.replace(hour=16, minute=0, second=0, microsecond=0)
@@ -428,20 +377,160 @@ def get_market_status():
     
     return is_weekday and is_market_hours
 
+# ---------- Educational Functions -----------
+
+def add_educational_tooltips():
+    st.markdown("""
+    ### 💡 Quick Guide for New Investors
+    
+    **Market Terms Made Simple:**
+    - **Stock Price**: The current cost to buy one share of a company
+    - **% Change**: How much the stock price went up (green) or down (red) today
+    - **Volume**: How many shares were traded (high volume = lots of interest)
+    - **Market Cap**: Total value of all company shares combined
+    - **P/E Ratio**: Price compared to earnings (lower often = better value)
+    - **RSI**: Momentum indicator (above 70 = might be overpriced, below 30 = might be underpriced)
+    - **VIX**: "Fear Index" - measures market uncertainty (higher = more worried investors)
+    
+    **Reading the Charts:**
+    - **Green candles**: Stock closed higher than it opened
+    - **Red candles**: Stock closed lower than it opened
+    - **Moving averages**: Trend lines that smooth out price movements
+    - **Volume bars**: Show trading activity levels
+    
+    **News Sentiment:**
+    - **Positive**: Good news that might push prices up
+    - **Negative**: Bad news that might push prices down  
+    - **Neutral**: News with unclear impact on prices
+    """)
+
+def explain_market_status():
+    is_open = get_market_status()
+    current_time = datetime.now(pytz.timezone('US/Eastern'))
+    
+    if is_open:
+        st.success("🟢 **Market is OPEN** - Prices are updating in real-time during trading hours (9:30 AM - 4:00 PM ET, Monday-Friday)")
+    else:
+        st.info("🔴 **Market is CLOSED** - Prices shown are from the last trading session. Markets are closed on weekends and holidays.")
+    
+    st.caption(f"Current Eastern Time: {current_time.strftime('%I:%M %p on %A, %B %d')}")
+
+def add_beginner_tips():
+    with st.expander("🎓 New to Investing? Start Here!"):
+        st.markdown("""
+        **Getting Started Tips:**
+        
+        1. **Start Small**: Only invest money you can afford to lose
+        2. **Diversify**: Don't put all your money in one stock
+        3. **Do Research**: Understand what the company does before buying
+        4. **Think Long-term**: Stock prices go up and down daily, but good companies tend to grow over years
+        5. **Don't Panic**: Market drops are normal - stay calm and stick to your plan
+        
+        **What to Look For:**
+        - Companies you understand and believe in
+        - Consistent growth over time
+        - Reasonable P/E ratios (not too high)
+        - Positive news sentiment trends
+        - Strong fundamentals (good revenue, manageable debt)
+        
+        **Red Flags:**
+        - Stocks that seem "too good to be true"
+        - Companies with consistently negative news
+        - Extremely high volatility without clear reasons
+        - Pressure to "buy now or miss out"
+        """)
+
+def enhanced_sidebar():
+    with st.sidebar:
+        st.markdown('<div style="text-align: center; margin-bottom: 2rem;"><h1 style="color: #3b82f6;">📊 StockMood Pro</h1></div>', unsafe_allow_html=True)
+        st.caption("Your friendly guide to the stock market")
+        
+        page = st.selectbox(
+            "Navigate to:",
+            ["🏠 Dashboard", "📈 Stock Analysis", "📰 News & Sentiment", "🌍 Global Markets", "🎓 Learning Center"],
+            index=0
+        )
+        
+        st.markdown("---")
+        
+        is_open = get_market_status()
+        status_text = "🟢 OPEN" if is_open else "🔴 CLOSED"
+        st.markdown(f"**Market Status:** {status_text}")
+        
+        if is_open:
+            st.success("✅ Live prices updating")
+        else:
+            st.info("⏰ Next open: Monday 9:30 AM ET")
+        
+        current_time = datetime.now(pytz.timezone('US/Eastern'))
+        st.markdown(f"**Eastern Time:** {current_time.strftime('%I:%M %p')}")
+        
+        st.markdown("---")
+        
+        st.markdown("**📈 Market Snapshot**")
+        
+        spy_hist, _ = get_stock_data("SPY", "2d")
+        if spy_hist is not None and not spy_hist.empty:
+            current = spy_hist['Close'].iloc[-1]
+            prev = spy_hist['Close'].iloc[-2] if len(spy_hist) > 1 else current
+            change = ((current - prev) / prev) * 100
+            color = "#10b981" if change >= 0 else "#ef4444"
+            st.markdown(f'<div style="color: {color}; font-weight: bold;">S&P 500: {change:+.2f}%</div>', unsafe_allow_html=True)
+            st.caption("(Tracks 500 largest US companies)")
+        
+        vix_hist, _ = get_stock_data("^VIX", "2d")
+        if vix_hist is not None and not vix_hist.empty:
+            vix_current = vix_hist['Close'].iloc[-1]
+            vix_color = "#ef4444" if vix_current > 25 else "#10b981"
+            st.markdown(f'<div style="color: {vix_color}; font-weight: bold;">Fear Index: {vix_current:.1f}</div>', unsafe_allow_html=True)
+            if vix_current > 30:
+                st.caption("😰 High fear - market uncertainty")
+            elif vix_current < 20:
+                st.caption("😊 Low fear - market calm")
+            else:
+                st.caption("😐 Moderate uncertainty")
+        
+        st.markdown("---")
+        
+        tips = [
+            "💡 **Tip**: Diversification means not putting all your money in one stock - it helps reduce risk!",
+            "💡 **Tip**: Green usually means prices went up, red means they went down.",
+            "💡 **Tip**: Volume shows how many people are buying/selling - high volume often means big news!",
+            "💡 **Tip**: P/E ratio compares price to earnings - lower is often better value.",
+            "💡 **Tip**: The VIX measures fear - when it's high, the market is usually more volatile.",
+            "💡 **Tip**: Moving averages smooth out price movements to show trends more clearly.",
+            "💡 **Tip**: Market cap is company size - larger companies are usually less risky."
+        ]
+        
+        daily_tip = tips[datetime.now().day % len(tips)]
+        st.info(daily_tip)
+        
+        st.markdown("---")
+        
+        if st.button("🎲 Surprise Me!", help="Get a random stock to learn about"):
+            random_ticker = random.choice(get_top_stocks())
+            st.session_state['surprise_ticker'] = random_ticker
+            st.success(f"Let's explore: {random_ticker}")
+        
+        if 'surprise_ticker' in st.session_state:
+            st.markdown(f"**Exploring:** {st.session_state['surprise_ticker']}")
+        
+        st.markdown("---")
+        st.markdown('<div style="text-align: center; color: #64748b; font-size: 0.8rem;">Built for curious minds 💙</div>', unsafe_allow_html=True)
+    
+    return page
+
 # ---------- Page Functions -----------
 
 def dashboard_page():
-    """Main dashboard page"""
     st.markdown('<div class="section-header">📊 StockMood Pro Dashboard</div>', unsafe_allow_html=True)
     
-    # Market status
     is_open = get_market_status()
     status_class = "market-open" if is_open else "market-closed"
     status_text = "MARKET OPEN" if is_open else "MARKET CLOSED"
     
     st.markdown(f'<div class="market-status {status_class}">{status_text}</div>', unsafe_allow_html=True)
     
-    # Major indices ticker
     indices = get_major_indices()
     ticker_items = []
     
@@ -459,18 +548,16 @@ def dashboard_page():
         ticker_html = f'<div class="ticker-banner"><div class="ticker-content">{"".join(ticker_items * 3)}</div></div>'
         st.markdown(ticker_html, unsafe_allow_html=True)
     
-    # Main metrics grid
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        if indices:
-            spy_hist, _ = get_stock_data("SPY", "5d")
-            if spy_hist is not None and not spy_hist.empty:
-                current = spy_hist['Close'].iloc[-1]
-                prev = spy_hist['Close'].iloc[-2] if len(spy_hist) > 1 else current
-                change = ((current - prev) / prev) * 100
-                st.metric("S&P 500 (SPY)", f"${current:.2f}", f"{change:.2f}%")
+        spy_hist, _ = get_stock_data("SPY", "5d")
+        if spy_hist is not None and not spy_hist.empty:
+            current = spy_hist['Close'].iloc[-1]
+            prev = spy_hist['Close'].iloc[-2] if len(spy_hist) > 1 else current
+            change = ((current - prev) / prev) * 100
+            st.metric("S&P 500 (SPY)", f"${current:.2f}", f"{change:.2f}%")
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col2:
@@ -499,7 +586,6 @@ def dashboard_page():
             st.metric("USD Index (UUP)", f"${current:.2f}", "Dollar Strength")
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # Sector performance
     st.markdown('<div class="subsection-header">🏭 Sector Performance</div>', unsafe_allow_html=True)
     
     sectors = get_sectors()
@@ -517,7 +603,6 @@ def dashboard_page():
         sector_df = pd.DataFrame(sector_data)
         sector_df = sector_df.sort_values("Change %", ascending=False)
         
-        # Create sector performance chart
         fig = px.bar(
             sector_df, 
             x="Sector", 
@@ -529,7 +614,6 @@ def dashboard_page():
         fig.update_layout(height=400, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
     
-    # Top movers
     st.markdown('<div class="subsection-header">🚀 Top Daily Movers</div>', unsafe_allow_html=True)
     
     stocks = get_top_stocks()
@@ -538,7 +622,7 @@ def dashboard_page():
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    for i, ticker in enumerate(stocks[:20]):  # Limit for performance
+    for i, ticker in enumerate(stocks[:20]):
         progress_bar.progress((i + 1) / 20)
         status_text.text(f"Analyzing {ticker}...")
         
@@ -559,7 +643,6 @@ def dashboard_page():
     if movers_data:
         movers_df = pd.DataFrame(movers_data)
         
-        # Top gainers
         gainers = movers_df.nlargest(5, "Change %")
         losers = movers_df.nsmallest(5, "Change %")
         
@@ -594,10 +677,8 @@ def dashboard_page():
                 """, unsafe_allow_html=True)
 
 def stock_analysis_page():
-    """Individual stock analysis page"""
     st.markdown('<div class="section-header">📈 Stock Analysis</div>', unsafe_allow_html=True)
     
-    # Stock selector
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -609,13 +690,11 @@ def stock_analysis_page():
     if ticker:
         ticker = ticker.upper()
         
-        # Get data
         hist, info = get_stock_data(ticker, time_period)
         
         if hist is not None and not hist.empty:
             metrics = calculate_performance_metrics(hist)
             
-            # Key metrics display
             col1, col2, col3, col4, col5 = st.columns(5)
             
             with col1:
@@ -635,7 +714,6 @@ def stock_analysis_page():
             
             with col4:
                 st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-                rsi_color = "#ef4444" if metrics['rsi'] > 70 else "#10b981" if metrics['rsi'] < 30 else "#64748b"
                 st.metric("RSI", f"{metrics['rsi']:.1f}")
                 st.markdown('</div>', unsafe_allow_html=True)
             
@@ -645,12 +723,10 @@ def stock_analysis_page():
                 st.metric("Volume", vol_status, f"{metrics['volume_ratio']:.1f}x avg")
                 st.markdown('</div>', unsafe_allow_html=True)
             
-            # Advanced chart
             chart = create_advanced_chart(hist, ticker)
             if chart:
                 st.plotly_chart(chart, use_container_width=True)
             
-            # Company info
             if info:
                 st.markdown('<div class="subsection-header">🏢 Company Information</div>', unsafe_allow_html=True)
                 
@@ -672,14 +748,12 @@ def stock_analysis_page():
                     st.write(f"**52W Change:** {((metrics['current_price'] - metrics['52_week_low']) / metrics['52_week_low'] * 100):.1f}%")
                     st.markdown('</div>', unsafe_allow_html=True)
                 
-                # Business summary
                 if 'longBusinessSummary' in info:
                     st.markdown('<div class="subsection-header">📋 Business Summary</div>', unsafe_allow_html=True)
                     st.markdown('<div class="metric-card">', unsafe_allow_html=True)
                     st.write(info['longBusinessSummary'])
                     st.markdown('</div>', unsafe_allow_html=True)
             
-            # News analysis for this stock
             st.markdown('<div class="subsection-header">📰 Recent News & Sentiment</div>', unsafe_allow_html=True)
             
             news_articles = get_comprehensive_news(f"{ticker} stock", 8)
@@ -707,10 +781,8 @@ def stock_analysis_page():
             st.error(f"Could not fetch data for {ticker}. Please check the ticker symbol.")
 
 def news_page():
-    """Comprehensive news and sentiment analysis page"""
     st.markdown('<div class="section-header">📰 Market News & Sentiment Analysis</div>', unsafe_allow_html=True)
     
-    # News categories
     news_categories = {
         "📊 Market Overview": "stock market news today",
         "💰 Economic Indicators": "economic indicators GDP inflation",
@@ -727,7 +799,6 @@ def news_page():
     selected_category = st.selectbox("Select News Category:", list(news_categories.keys()))
     search_query = news_categories[selected_category]
     
-    # Custom search
     col1, col2 = st.columns([3, 1])
     with col1:
         custom_search = st.text_input("Or search custom topic:", placeholder="Enter your own search terms...")
@@ -736,19 +807,16 @@ def news_page():
             if custom_search:
                 search_query = custom_search
     
-    # Fetch and display news
     with st.spinner("Fetching latest news and analyzing sentiment..."):
         articles = get_comprehensive_news(search_query, 15)
     
     if articles:
-        # Sentiment summary
         sentiments = [article['sentiment'] for article in articles]
         avg_sentiment = np.mean(sentiments)
         positive_count = sum(1 for s in sentiments if s > 0.1)
         negative_count = sum(1 for s in sentiments if s < -0.1)
         neutral_count = len(sentiments) - positive_count - negative_count
         
-        # Sentiment overview
         st.markdown('<div class="subsection-header">📊 Sentiment Overview</div>', unsafe_allow_html=True)
         
         col1, col2, col3, col4 = st.columns(4)
@@ -774,11 +842,9 @@ def news_page():
             st.metric("Neutral News", f"{neutral_count}", f"{neutral_count/len(articles)*100:.1f}%")
             st.markdown('</div>', unsafe_allow_html=True)
         
-        # Sentiment distribution chart
         sentiment_data = pd.DataFrame({
             'Sentiment': ['Positive', 'Negative', 'Neutral'],
-            'Count': [positive_count, negative_count, neutral_count],
-            'Color': ['#10b981', '#ef4444', '#64748b']
+            'Count': [positive_count, negative_count, neutral_count]
         })
         
         fig = px.pie(
@@ -792,35 +858,13 @@ def news_page():
         fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True)
         
-        # Sentiment timeline
-        sentiment_timeline = pd.DataFrame({
-            'Article': range(len(articles)),
-            'Sentiment': sentiments,
-            'Title': [article['title'][:50] + "..." for article in articles]
-        })
-        
-        fig_timeline = px.line(
-            sentiment_timeline, 
-            x='Article', 
-            y='Sentiment',
-            title="Sentiment Timeline Across Articles",
-            hover_data=['Title']
-        )
-        fig_timeline.add_hline(y=0, line_dash="dash", line_color="gray")
-        fig_timeline.add_hline(y=0.1, line_dash="dash", line_color="green", opacity=0.5)
-        fig_timeline.add_hline(y=-0.1, line_dash="dash", line_color="red", opacity=0.5)
-        st.plotly_chart(fig_timeline, use_container_width=True)
-        
-        # News articles
         st.markdown('<div class="subsection-header">📰 Latest Articles</div>', unsafe_allow_html=True)
         
-        # Sort by sentiment for better organization
         articles_sorted = sorted(articles, key=lambda x: abs(x['sentiment']), reverse=True)
         
         for i, article in enumerate(articles_sorted):
             sentiment_label, sentiment_class = get_sentiment_label(article['sentiment'])
             
-            # Determine sentiment intensity
             intensity = abs(article['sentiment'])
             if intensity > 0.5:
                 intensity_label = "Strong"
@@ -849,10 +893,8 @@ def news_page():
         st.warning("No news articles found for the selected topic. Try a different search term.")
 
 def global_markets_page():
-    """Global markets overview page"""
     st.markdown('<div class="section-header">🌍 Global Markets Overview</div>', unsafe_allow_html=True)
     
-    # Global indices
     global_markets = get_global_markets()
     
     st.markdown('<div class="subsection-header">🏛️ Major Global Indices</div>', unsafe_allow_html=True)
@@ -876,7 +918,6 @@ def global_markets_page():
                 })
     
     if global_data:
-        # Display global markets grid
         cols = st.columns(3)
         
         for i, market in enumerate(global_data):
@@ -900,7 +941,6 @@ def global_markets_page():
                 </div>
                 """, unsafe_allow_html=True)
         
-        # Global performance chart
         global_df = pd.DataFrame(global_data)
         
         fig = px.bar(
@@ -917,7 +957,6 @@ def global_markets_page():
         fig.update_xaxes(tickangle=45)
         st.plotly_chart(fig, use_container_width=True)
     
-    # Currency markets
     st.markdown('<div class="subsection-header">💱 Currency Markets</div>', unsafe_allow_html=True)
     
     currency_pairs = {
@@ -925,8 +964,7 @@ def global_markets_page():
         "GBPUSD=X": "GBP/USD", 
         "USDJPY=X": "USD/JPY",
         "USDCAD=X": "USD/CAD",
-        "AUDUSD=X": "AUD/USD",
-        "USDCHF=X": "USD/CHF"
+        "AUDUSD=X": "AUD/USD"
     }
     
     currency_data = []
@@ -944,8 +982,6 @@ def global_markets_page():
             })
     
     if currency_data:
-        currency_df = pd.DataFrame(currency_data)
-        
         cols = st.columns(3)
         for i, currency in enumerate(currency_data):
             col_idx = i % 3
@@ -963,15 +999,13 @@ def global_markets_page():
                 </div>
                 """, unsafe_allow_html=True)
     
-    # Commodities
     st.markdown('<div class="subsection-header">🏗️ Commodities</div>', unsafe_allow_html=True)
     
     commodities = {
         "GC=F": "Gold",
         "SI=F": "Silver",
         "CL=F": "Crude Oil",
-        "NG=F": "Natural Gas",
-        "HG=F": "Copper"
+        "NG=F": "Natural Gas"
     }
     
     commodity_data = []
@@ -1003,214 +1037,11 @@ def global_markets_page():
         fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
         fig.update_layout(height=400, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
-    
-    # Global news
-    st.markdown('<div class="subsection-header">🌍 Global Economic News</div>', unsafe_allow_html=True)
-    
-    global_news = get_comprehensive_news("global markets economy international trade", 5)
-    
-    if global_news:
-        for article in global_news:
-            sentiment_label, sentiment_class = get_sentiment_label(article['sentiment'])
-            
-            st.markdown(f"""
-            <div class="news-card">
-                <h4 style="margin-bottom: 0.5rem; color: #1e293b;">{article['title']}</h4>
-                <div style="margin-bottom: 0.8rem;">
-                    <span class="{sentiment_class}">{sentiment_label}</span>
-                    <span style="margin-left: 1rem; color: #64748b; font-size: 0.9rem;">
-                        {article['source']} • {article['published']}
-                    </span>
-                </div>
-                <p style="color: #475569; line-height: 1.5;">{article['summary']}</p>
-                <a href="{article['link']}" target="_blank" style="color: #3b82f6; text-decoration: none;">
-                    Read full article →
-                </a>
-            </div>
-            """, unsafe_allow_html=True)
-
-# ---------- Educational Content Functions -----------
-
-def add_educational_tooltips():
-    """Add educational content for new investors"""
-    st.markdown("""
-    ### 💡 Quick Guide for New Investors
-    
-    **Market Terms Made Simple:**
-    - **Stock Price**: The current cost to buy one share of a company
-    - **% Change**: How much the stock price went up (green) or down (red) today
-    - **Volume**: How many shares were traded (high volume = lots of interest)
-    - **Market Cap**: Total value of all company shares combined
-    - **P/E Ratio**: Price compared to earnings (lower often = better value)
-    - **RSI**: Momentum indicator (above 70 = might be overpriced, below 30 = might be underpriced)
-    - **VIX**: "Fear Index" - measures market uncertainty (higher = more worried investors)
-    
-    **Reading the Charts:**
-    - **Green candles**: Stock closed higher than it opened
-    - **Red candles**: Stock closed lower than it opened
-    - **Moving averages**: Trend lines that smooth out price movements
-    - **Volume bars**: Show trading activity levels
-    
-    **News Sentiment:**
-    - **Positive**: Good news that might push prices up
-    - **Negative**: Bad news that might push prices down  
-    - **Neutral**: News with unclear impact on prices
-    """)
-
-def explain_market_status():
-    """Explain market hours for beginners"""
-    is_open = get_market_status()
-    current_time = datetime.now(pytz.timezone('US/Eastern'))
-    
-    if is_open:
-        st.success("🟢 **Market is OPEN** - Prices are updating in real-time during trading hours (9:30 AM - 4:00 PM ET, Monday-Friday)")
-    else:
-        st.info("🔴 **Market is CLOSED** - Prices shown are from the last trading session. Markets are closed on weekends and holidays.")
-    
-    st.caption(f"Current Eastern Time: {current_time.strftime('%I:%M %p on %A, %B %d')}")
-
-def add_beginner_tips():
-    """Add helpful tips for new investors"""
-    with st.expander("🎓 New to Investing? Start Here!"):
-        st.markdown("""
-        **Getting Started Tips:**
-        
-        1. **Start Small**: Only invest money you can afford to lose
-        2. **Diversify**: Don't put all your money in one stock
-        3. **Do Research**: Understand what the company does before buying
-        4. **Think Long-term**: Stock prices go up and down daily, but good companies tend to grow over years
-        5. **Don't Panic**: Market drops are normal - stay calm and stick to your plan
-        
-        **What to Look For:**
-        - Companies you understand and believe in
-        - Consistent growth over time
-        - Reasonable P/E ratios (not too high)
-        - Positive news sentiment trends
-        - Strong fundamentals (good revenue, manageable debt)
-        
-        **Red Flags:**
-        - Stocks that seem "too good to be true"
-        - Companies with consistently negative news
-        - Extremely high volatility without clear reasons
-        - Pressure to "buy now or miss out"
-        """)
-
-def explain_risk_levels():
-    """Explain different risk levels"""
-    st.markdown("""
-    ### 🎯 Risk Level Guide
-    
-    **Conservative (Lower Risk)**
-    - Large, established companies (Apple, Microsoft, Coca-Cola)
-    - Dividend-paying stocks
-    - Index funds (like SPY - tracks the S&P 500)
-    
-    **Moderate Risk**
-    - Growing companies in stable industries
-    - Sector-specific funds
-    - Blue-chip stocks with some growth potential
-    
-    **Aggressive (Higher Risk)**
-    - Small, new companies
-    - Tech startups
-    - Individual stocks in volatile sectors
-    - Meme stocks or trending picks
-    """)
-
-# Update the sidebar to include educational content
-def enhanced_sidebar():
-    """Enhanced sidebar with educational content"""
-    with st.sidebar:
-        st.markdown('<div style="text-align: center; margin-bottom: 2rem;"><h1 style="color: #3b82f6;">📊 StockMood Pro</h1></div>', unsafe_allow_html=True)
-        st.caption("Your friendly guide to the stock market")
-        
-        page = st.selectbox(
-            "Navigate to:",
-            ["🏠 Dashboard", "📈 Stock Analysis", "📰 News & Sentiment", "🌍 Global Markets", "🎓 Learning Center"],
-            index=0
-        )
-        
-        st.markdown("---")
-        
-        # Market status with explanation
-        is_open = get_market_status()
-        status_text = "🟢 OPEN" if is_open else "🔴 CLOSED"
-        st.markdown(f"**Market Status:** {status_text}")
-        
-        if is_open:
-            st.success("✅ Live prices updating")
-        else:
-            st.info("⏰ Next open: Monday 9:30 AM ET")
-        
-        current_time = datetime.now(pytz.timezone('US/Eastern'))
-        st.markdown(f"**Eastern Time:** {current_time.strftime('%I:%M %p')}")
-        
-        st.markdown("---")
-        
-        # Quick market snapshot with explanations
-        st.markdown("**📈 Market Snapshot**")
-        
-        # S&P 500 with explanation
-        spy_hist, _ = get_stock_data("SPY", "2d")
-        if spy_hist is not None and not spy_hist.empty:
-            current = spy_hist['Close'].iloc[-1]
-            prev = spy_hist['Close'].iloc[-2] if len(spy_hist) > 1 else current
-            change = ((current - prev) / prev) * 100
-            color = "#10b981" if change >= 0 else "#ef4444"
-            st.markdown(f'<div style="color: {color}; font-weight: bold;">S&P 500: {change:+.2f}%</div>', unsafe_allow_html=True)
-            st.caption("(Tracks 500 largest US companies)")
-        
-        # VIX with explanation
-        vix_hist, _ = get_stock_data("^VIX", "2d")
-        if vix_hist is not None and not vix_hist.empty:
-            vix_current = vix_hist['Close'].iloc[-1]
-            vix_color = "#ef4444" if vix_current > 25 else "#10b981"
-            st.markdown(f'<div style="color: {vix_color}; font-weight: bold;">Fear Index: {vix_current:.1f}</div>', unsafe_allow_html=True)
-            if vix_current > 30:
-                st.caption("😰 High fear - market uncertainty")
-            elif vix_current < 20:
-                st.caption("😊 Low fear - market calm")
-            else:
-                st.caption("😐 Moderate uncertainty")
-        
-        st.markdown("---")
-        
-        # Educational tip of the day
-        tips = [
-            "💡 **Tip**: Diversification means not putting all your money in one stock - it helps reduce risk!",
-            "💡 **Tip**: Green usually means prices went up, red means they went down.",
-            "💡 **Tip**: Volume shows how many people are buying/selling - high volume often means big news!",
-            "💡 **Tip**: P/E ratio compares price to earnings - lower is often better value.",
-            "💡 **Tip**: The VIX measures fear - when it's high, the market is usually more volatile.",
-            "💡 **Tip**: Moving averages smooth out price movements to show trends more clearly.",
-            "💡 **Tip**: Market cap is company size - larger companies are usually less risky."
-        ]
-        
-        daily_tip = tips[datetime.now().day % len(tips)]
-        st.info(daily_tip)
-        
-        st.markdown("---")
-        
-        # Random stock feature with education
-        if st.button("🎲 Surprise Me!", help="Get a random stock to learn about"):
-            random_ticker = random.choice(get_top_stocks())
-            st.session_state['surprise_ticker'] = random_ticker
-            st.success(f"Let's explore: {random_ticker}")
-        
-        if 'surprise_ticker' in st.session_state:
-            st.markdown(f"**Exploring:** {st.session_state['surprise_ticker']}")
-        
-        st.markdown("---")
-        st.markdown('<div style="text-align: center; color: #64748b; font-size: 0.8rem;">Built for curious minds 💙</div>', unsafe_allow_html=True)
-    
-    return page
 
 def learning_center_page():
-    """Educational page for new investors"""
     st.markdown('<div class="section-header">🎓 Learning Center</div>', unsafe_allow_html=True)
     st.markdown("**Everything you need to know about investing, explained simply**")
     
-    # Basic concepts
     st.markdown('<div class="subsection-header">📚 Stock Market Basics</div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
@@ -1259,12 +1090,10 @@ def learning_center_page():
         </div>
         """, unsafe_allow_html=True)
     
-    # Reading the dashboard
     st.markdown('<div class="subsection-header">📊 How to Read This Dashboard</div>', unsafe_allow_html=True)
     
     add_educational_tooltips()
     
-    # Investment strategies
     st.markdown('<div class="subsection-header">💰 Simple Investment Strategies</div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
@@ -1302,7 +1131,6 @@ def learning_center_page():
         </div>
         """, unsafe_allow_html=True)
     
-    # Common mistakes
     st.markdown('<div class="subsection-header">❌ Common Beginner Mistakes</div>', unsafe_allow_html=True)
     
     st.markdown("""
@@ -1318,70 +1146,16 @@ def learning_center_page():
     </ul>
     </div>
     """, unsafe_allow_html=True)
-    
-    # Practical next steps
-    st.markdown('<div class="subsection-header">🚀 Ready to Start?</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div class="metric-card">
-    <h4>Step-by-Step Beginner Plan:</h4>
-    <ol style="line-height: 1.8;">
-    <li><strong>Start with our Dashboard:</strong> Get familiar with how stocks move and what affects them</li>
-    <li><strong>Pick 5-10 companies you know:</strong> Apple, Microsoft, Disney, etc. Follow them for a few weeks</li>
-    <li><strong>Open a brokerage account:</strong> Popular ones include Fidelity, Charles Schwab, or Robinhood</li>
-    <li><strong>Start small:</strong> Begin with index funds or just $50-100 in individual stocks</li>
-    <li><strong>Keep learning:</strong> Use this dashboard to understand market movements</li>
-    <li><strong>Stay patient:</strong> Good investing is boring - slow and steady wins</li>
-    </ol>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    explain_risk_levels()
-    
-    # Interactive quiz
-    st.markdown('<div class="subsection-header">🧠 Quick Knowledge Check</div>', unsafe_allow_html=True)
-    
-    with st.expander("Test Your Knowledge"):
-        q1 = st.radio(
-            "What does it mean when a stock is 'up 5%'?",
-            ["The stock price increased by 5% today", "The company made 5% more profit", "5% more people bought the stock"]
-        )
-        
-        if q1 == "The stock price increased by 5% today":
-            st.success("✅ Correct! The stock price went up by 5% compared to yesterday's closing price.")
-        
-        q2 = st.radio(
-            "What's generally safer for beginners?",
-            ["Buying one hot stock", "Buying an index fund", "Following social media tips"]
-        )
-        
-        if q2 == "Buying an index fund":
-            st.success("✅ Correct! Index funds spread your risk across many companies automatically.")
-        
-        q3 = st.radio(
-            "When should you sell a stock?",
-            ["When it goes down 10%", "When you need the money or your investment thesis changes", "When everyone else is selling"]
-        )
-        
-        if q3 == "When you need the money or your investment thesis changes":
-            st.success("✅ Correct! Don't make emotional decisions based on short-term price movements.")
 
-# Update main function to use enhanced sidebar and learning center
 def main():
-    """Main application"""
-    
-    # Use enhanced sidebar with educational content
     page = enhanced_sidebar()
     
-    # Add beginner tips to main pages
     if page in ["🏠 Dashboard", "📈 Stock Analysis"]:
         add_beginner_tips()
     
-    # Market status explanation
     if page == "🏠 Dashboard":
         explain_market_status()
     
-    # Main content area
     if page == "🏠 Dashboard":
         dashboard_page()
     elif page == "📈 Stock Analysis":
