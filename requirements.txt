@@ -1,8 +1,8 @@
 streamlit
 yfinance
 feedparser
-vaderSentiment
-pytz
-plotly
-altair
+vadersentiment
 pandas
+plotly
+pytz
+numpy
