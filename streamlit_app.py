@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import pytz
 import altair as alt
 import pandas as pd
-import random
 import plotly.graph_objects as go
 
 # ---------- Constants & Helpers -----------
@@ -59,7 +58,7 @@ def get_mood(ticker, pct_change, volume_spike, sentiment):
     elif sentiment < -0.3:
         return "🧨", f"Bad press brewing for {ticker}."
     elif abs(pct_change) < 0.3:
-        return "😴", f"{ticker} is chilling today."
+        return "💤", f"{ticker} is chilling today."
     else:
         return "🤔", f"Mixed signals for {ticker}."
 
@@ -143,34 +142,38 @@ st.markdown("""
             background-color: #f9f9f9;
             box-shadow: 0px 1px 3px rgba(0,0,0,0.05);
         }
-        .ticker-scroll {
-            overflow: hidden;
+        .ticker-bar {
             white-space: nowrap;
+            overflow: hidden;
             box-sizing: border-box;
-            animation: ticker-scroll 40s linear infinite;
+            background: #111827;
+            color: white;
+            padding: 0.5rem;
+            font-size: 1rem;
         }
-        @keyframes ticker-scroll {
-            0% { transform: translateX(100%); }
+        .ticker-content {
+            display: inline-block;
+            padding-left: 100%;
+            animation: ticker 25s linear infinite;
+        }
+        @keyframes ticker {
+            0% { transform: translateX(0); }
             100% { transform: translateX(-100%); }
         }
     </style>
 """, unsafe_allow_html=True)
 
-st.title(":chart_with_upwards_trend: Stock Mood of the Day")
-
+st.title("📊 Stock Mood of the Day")
 st.markdown("""
     Curious how stocks are *feeling* today?
-    Get a quick pulse of the market with sentiment, volume, price, and mood — all in one glance.
+    Pick your favorites below to see their price moves, news sentiment, and mood emoji at a glance.
 """)
 
-if st.button("🎲 Surprise Me"):
-    st.session_state["tickers"] = [random.choice(POPULAR_TICKERS)]
-
 if "tickers" not in st.session_state:
-    st.session_state["tickers"] = []
+    st.session_state["tickers"] = ["AAPL", "TSLA"]
 
-user_input = st.text_input("Enter up to 3 tickers:", value=", ".join(st.session_state["tickers"]))
-tickers = [t.strip().upper() for t in user_input.split(",") if t.strip()][:3]
+selected = st.multiselect("Select up to 3 stocks to explore:", options=POPULAR_TICKERS, default=st.session_state["tickers"])
+tickers = selected[:3]
 st.session_state["tickers"] = tickers
 
 market_open_now = is_market_open()
@@ -180,7 +183,6 @@ for ticker in tickers:
     try:
         hist = get_stock_data(ticker)
         if hist.empty or len(hist) < 2:
-            st.warning(f"Not enough data for {ticker}.")
             continue
 
         current_close = hist["Close"][-1]
@@ -209,53 +211,24 @@ for ticker in tickers:
             "history_df": mood_hist_df,
             "hist_data": hist
         })
-    except Exception as e:
-        st.warning(f"Error fetching data for {ticker}: {e}")
+    except:
+        continue
 
-if not mood_results:
-    st.info("Enter valid stock tickers to see their moods.")
-    st.stop()
+# Quotron ticker
+if mood_results:
+    ticker_html = "<div class='ticker-bar'><div class='ticker-content'>"
+    for data in mood_results:
+        ticker_html += f"<a href='?tickers={data['ticker']}' style='color:white; margin-right: 2rem;'>{data['emoji']} {data['ticker']} {data['pct_change']:.2f}%</a>"
+    ticker_html += "</div></div>"
+    st.markdown(ticker_html, unsafe_allow_html=True)
 
-sorted_results = sorted(mood_results, key=lambda x: x["score"], reverse=True)
-top7 = sorted_results[:7]
-bottom7 = sorted_results[-7:]
-
-st.subheader("🏆 Top 7 Mood Stocks")
-top_cols = st.columns(len(top7))
-for idx, data in enumerate(top7):
-    with top_cols[idx]:
-        st.metric(label=f"{data['ticker']} {data['emoji']}", value=f"{data['pct_change']:.2f}%")
-        st.caption(data["sentence"])
-
-st.subheader("🔻 Bottom 7 Mood Stocks")
-bottom_cols = st.columns(len(bottom7))
-for idx, data in enumerate(bottom7):
-    with bottom_cols[idx]:
-        st.metric(label=f"{data['ticker']} {data['emoji']}", value=f"{data['pct_change']:.2f}%")
-        st.caption(data["sentence"])
-
-# Quotron animated bar
-st.markdown("""
-    <div class='ticker-scroll'>
-""", unsafe_allow_html=True)
-
-quote_cols = st.columns(len(mood_results))
-clicked_ticker = None
-
-for i, data in enumerate(mood_results):
-    with quote_cols[i]:
-        if st.button(f"{data['ticker']} {data['emoji']}"):
-            clicked_ticker = data['ticker']
-
-if clicked_ticker:
-    st.session_state["tickers"] = [clicked_ticker]
-    st.experimental_rerun()
-
-st.subheader("📈 Mood History & Price Charts")
 for data in mood_results:
-    st.markdown(f"### {data['ticker']} {data['emoji']}")
-    st.altair_chart(altair_mood_chart(data["history_df"]), use_container_width=True)
-    st.plotly_chart(plot_price_chart(data["hist_data"]), use_container_width=True)
+    with st.expander(f"📈 {data['ticker']} — {data['sentence']}"):
+        st.altair_chart(altair_mood_chart(data["history_df"]), use_container_width=True)
+        st.plotly_chart(plot_price_chart(data["hist_data"]), use_container_width=True)
+        st.markdown("**Latest Headlines:**")
+        for h in data["headlines"]:
+            st.markdown(f"- {h}")
 
 st.markdown("""---
 <p style='text-align:center;'>Made with ❤️ | Data via Yahoo & Google News</p>""", unsafe_allow_html=True)
