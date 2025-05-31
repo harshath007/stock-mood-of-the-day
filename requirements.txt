@@ -1,5 +1,8 @@
+streamlit
 yfinance
 feedparser
 vaderSentiment
-streamlit
+pytz
 plotly
+altair
+pandas
