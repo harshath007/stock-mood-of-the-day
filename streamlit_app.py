@@ -35,7 +35,7 @@ st.markdown("""
     .stApp {
         background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        color: #000000 !important;
+        color: #ffffff !important;
     }
     
     .main {
