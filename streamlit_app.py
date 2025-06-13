@@ -456,7 +456,7 @@ def main():
         st.session_state.selected_stock = 'AAPL'
     
     # Header
-    st.title("📊 StockMood Pro")
+    st.title("📊 StockMood ")
     st.markdown("**Smart Stock Analysis Made Simple**")
     st.markdown("*Get clear insights without the complexity*")
     
