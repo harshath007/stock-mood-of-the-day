@@ -1270,6 +1270,10 @@ def dashboard_page():
 
     if sector_data:
         sector_df = pd.DataFrame(sector_data).sort_values("Change %", ascending=False)
+        if sector_data:
+    sector_df = pd.DataFrame(sector_data).sort_values("Change %", ascending=False)
+
+    if not sector_df.empty:
         fig = px.bar(
             sector_df,
             x="Sector",
@@ -1280,6 +1284,11 @@ def dashboard_page():
         )
         fig.update_layout(height=400, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("No sector data available.")
+else:
+    st.warning("Sector performance data is missing.")
+
 
     st.markdown('<div class="subsection-header">🚀 Top Daily Movers</div>', unsafe_allow_html=True)
 
