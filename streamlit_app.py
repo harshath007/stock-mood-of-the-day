@@ -28,7 +28,7 @@ analyzer = SentimentIntensityAnalyzer()
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-    
+
     :root {
         --primary-blue: #2563eb;
         --primary-purple: #7c3aed;
@@ -47,6 +47,14 @@ st.markdown("""
         --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
         --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
     }
+
+    html, body, h1, h2, h3, h4, h5, h6, p, div, span, label, input, textarea {
+        font-family: 'Inter', sans-serif !important;
+        color: black !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
     
     .stApp {
         background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
