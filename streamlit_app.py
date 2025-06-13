@@ -1224,175 +1224,47 @@ def dashboard_page():
             st.metric(f"{perf_emoji} S&P 500 (SPY)", f"${current:.2f}", f"{change:.2f}%")
         st.markdown('</div>', unsafe_allow_html=True)
     
-    with col2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        vix_hist, _ = get_stock_data("^VIX", "5d")
-        if vix_hist is not None and not vix_hist.empty:
-            current = vix_hist['Close'].iloc[-1]
-            if current > 30:
-                vix_emoji = "😱"
-            elif current > 25:
-                vix_emoji = "😰"
-            elif current > 20:
-                vix_emoji = "😐"
-            else:
-                vix_emoji = "😌"
-            st.metric(f"{vix_emoji} Fear Index (VIX)", f"{current:.2f}", "Volatility Measure")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        gold_hist, _ = get_stock_data("GLD", "5d")
-        if gold_hist is not None and not gold_hist.empty:
-            current = gold_hist['Close'].iloc[-1]
-            prev = gold_hist['Close'].iloc[-2] if len(gold_hist) > 1 else current
-            change = ((current - prev) / prev) * 100
-            gold_emoji = "💰" if change >= 0 else "📉"
-            st.metric(f"{gold_emoji} Gold (GLD)", f"${current:.2f}", f"{change:.2f}%")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        dxy_hist, _ = get_stock_data("UUP", "5d")
-        if dxy_hist is not None and not dxy_hist.empty:
-            current = dxy_hist['Close'].iloc[-1]
-            prev = dxy_hist['Close'].iloc[-2] if len(dxy_hist) > 1 else current
-            change = ((current - prev) / prev) * 100
-            dollar_emoji = "💵" if change >= 0 else "💸"
-            st.metric(f"{dollar_emoji} USD Index (UUP)", f"${current:.2f}", f"{change:.2f}%")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('<div class="subsection-header">🏭 Sector Performance</div>', unsafe_allow_html=True)
-    
-    sectors = get_sectors()
-    sector_data = []
-    
-    for symbol, name in sectors.items():
-        hist, _ = get_stock_data(symbol, "5d")
-        if hist is not None and not hist.empty:
-            current = hist['Close'].iloc[-1]
-            prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
-            change = ((current - prev) / prev) * 100
-            sector_data.append({"Sector": name, "Change %": change, "Price": current})
-    
-    if sector_data:
-        sector_df = pd.DataFrame(sector_data)
-        sector_df = sector_df.sort_values("Change %", ascending=False)
-        
-        fig = px.bar(
-            sector_df, 
-            x="Sector", 
-            y="Change %",
-            color="Change %",
-            color_continuous_scale=["red", "yellow", "green"],
-            title="Daily Sector Performance"
-        )
-        fig.update_layout(height=400, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown('<div class="subsection-header">🚀 Top Daily Movers</div>', unsafe_allow_html=True)
-    
-    stocks = get_top_stocks()
-    movers_data = []
-    
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    for i, ticker in enumerate(stocks[:20]):
-        progress_bar.progress((i + 1) / 20)
-        status_text.text(f"Analyzing {ticker}...")
-        
-        hist, info = get_stock_data(ticker, "5d")
-        if hist is not None and not hist.empty:
-            metrics = calculate_performance_metrics(hist)
-            movers_data.append({
-                "Ticker": ticker,
-                "Price": metrics.get("current_price", 0),
-                "Change %": metrics.get("daily_change", 0),
-                "Volume Ratio": metrics.get("volume_ratio", 1),
-                "RSI": metrics.get("rsi", 50)
-            })
-    
-    progress_bar.empty()
-    status_text.empty()
-    
-    if movers_data:
-        movers_df = pd.DataFrame(movers_data)
-        
-        gainers = movers_df.nlargest(5, "Change %")
-        losers = movers_df.nsmallest(5, "Change %")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**🟢 Top Gainers**")
-            for _, row in gainers.iterrows():
-                change_color = "#10b981" if row["Change %"] >= 0 else "#ef4444"
-                perf_emoji = get_performance_emoji(row["Change %"])
-                volume_emoji = get_volume_emoji(row["Volume Ratio"])
-                rsi_emoji = get_rsi_emoji(row["RSI"])
-                
-                # Get prediction for this stock
-                hist, _ = get_stock_data(row['Ticker'], "3mo")
-                prediction = calculate_trading_prediction(hist)
-                
-                # Create clickable stock card
-                if st.button(f"{perf_emoji} {row['Ticker']}", key=f"gainer_{row['Ticker']}", help="Click to view detailed analysis"):
-                    st.session_state['selected_stock'] = row['Ticker']
-                    st.session_state['page_selection'] = "📈 Stock Analysis"
-                    st.rerun()
-                
-                st.markdown(f"""
-                <div class="performance-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>${row['Price']:.2f}</strong><br>
-                            <span style="color: {change_color}; font-weight: bold;">
-                                {row['Change %']:.2f}% 
-                            </span><br>
-                            <small>{volume_emoji} Vol: {row['Volume Ratio']:.1f}x | {rsi_emoji} RSI: {row['RSI']:.1f}</small>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.2rem;">{prediction['prediction_emoji']}</div>
-                            <div style="font-size: 0.8rem; font-weight: bold; color: #64748b;">
-                                {prediction['signal'].replace('_', ' ')}
-                            </div>
-                            <div style="font-size: 0.7rem; color: #94a3b8;">
-                                {prediction['confidence']}% confidence
-                            </div>
-                        </div>
+   with col2:
+    st.markdown("**🔴 Top Losers**")
+    for _, row in losers.iterrows():
+        change_color = "#10b981" if row["Change %"] >= 0 else "#ef4444"
+        perf_emoji = get_performance_emoji(row["Change %"])
+        volume_emoji = get_volume_emoji(row["Volume Ratio"])
+        rsi_emoji = get_rsi_emoji(row["RSI"])
+
+        # Get prediction for this stock
+        hist, _ = get_stock_data(row['Ticker'], "3mo")
+        prediction = calculate_trading_prediction(hist)
+
+        # Create clickable stock card
+        if st.button(f"{perf_emoji} {row['Ticker']}", key=f"loser_{row['Ticker']}", help="Click to view detailed analysis"):
+            st.session_state['selected_stock'] = row['Ticker']
+            st.session_state['page_selection'] = "📈 Stock Analysis"
+            st.rerun()
+
+        st.markdown(f"""
+            <div class="performance-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${row['Price']:.2f}</strong><br>
+                        <span style="color: {change_color}; font-weight: bold;">
+                            {row['Change %']:.2f}%
+                        </span><br>
+                        <small>{volume_emoji} Vol: {row['Volume Ratio']:.1f}x | {rsi_emoji} RSI: {row['RSI']:.1f}</small>
                     </div>
-                    <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #64748b; font-style: italic;">
-                        ⚠️ Prediction only - not financial advice
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.2rem;">{prediction['prediction_emoji']}</div>
+                        <div style="font-size: 0.8rem; font-weight: bold; color: #64748b;">
+                            {prediction['signal'].replace('_', ' ')}
+                        </div>
+                        <div style="font-size: 0.7rem; color: #94a3b8;">
+                            {prediction['confidence']}% confidence
+                        </div>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("**🔴 Top Losers**")
-            for _, row in losers.iterrows():
-                change_color = "#10b981" if row["Change %"] >= 0 else "#ef4444"
-                perf_emoji = get_performance_emoji(row["Change %"])
-                volume_emoji = get_volume_emoji(row["Volume Ratio"])
-                rsi_emoji = get_rsi_emoji(row["RSI"])
-                
-                # Get prediction for this stock
-                hist, _ = get_stock_data(row['Ticker'], "3mo")
-                prediction = calculate_trading_prediction(hist)
-                
-                # Create clickable stock card
-                if st.button(f"{perf_emoji} {row['Ticker']}", key=f"loser_{row['Ticker']}", help="Click to view detailed analysis"):
-                    st.session_state['selected_stock'] = row['Ticker']
-                    st.session_state['page_selection'] = "📈 Stock Analysis"
-                    st.rerun()
-                
-               st.markdown(f"""
-    <div class="performance-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <strong>${row['Price']:.2f}</strong><br>
-                <span style="color:{row['Ticker']}">{row['Change %']}%</span>
+                <div style="margin-top: 0.5rem; font-size: 0.7rem; color: #64748b; font-style: italic;">
+                    ⚠️ Prediction only - not financial advice
+                </div>
             </div>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+
