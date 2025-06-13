@@ -1386,9 +1386,13 @@ def dashboard_page():
                     st.session_state['page_selection'] = "📈 Stock Analysis"
                     st.rerun()
                 
-                st.markdown(f"""
-                <div class="performance-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>${row['Price']:.2f}</strong><br>
-                            <span style="color:
+               st.markdown(f"""
+    <div class="performance-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <strong>${row['Price']:.2f}</strong><br>
+                <span style="color:{row['Ticker']}">{row['Change %']}%</span>
+            </div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
