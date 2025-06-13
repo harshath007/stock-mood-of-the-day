@@ -1269,7 +1269,7 @@ def dashboard_page():
             sector_data.append({"Sector": name, "Change %": change, "Price": current})
 
    if sector_data:
-    sector_df = pd.DataFrame(sector_data).sort_values("Change %", ascending=False)
+        sector_df = pd.DataFrame(sector_data).sort_values("Change %", ascending=False)
 
     if not sector_df.empty:
         fig = px.bar(
