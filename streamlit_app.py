@@ -884,7 +884,6 @@ def display_home_page():
     <div class="main-container">
         <div class="hero-section">
             <div class="hero-title">StockMood Pro</div>
-            <div class="hero-subtitle">Comprehensive Stock Analysis & Investment Scoring</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -893,7 +892,6 @@ def display_home_page():
     create_quotron_ticker()
     
     # Add click instructions
-    st.markdown("💡 **Click on any stock in the ticker above to view detailed analysis**")
     st.markdown("---")
     
     # Stock selection
