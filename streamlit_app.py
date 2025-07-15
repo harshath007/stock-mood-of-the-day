@@ -151,26 +151,26 @@ st.markdown("""
         margin-right: 15px;
     }
     
-    /* Metric cards with proper contrast */
+    /* Metric cards */
     .metric-card {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 20px;
         border-radius: 12px;
         text-align: center;
         box-shadow: 0 8px 20px rgba(0,0,0,0.1);
         margin: 10px 0;
-        border: 1px solid #cbd5e1;
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
     .metric-card h4 {
-        color: #374151 !important;
+        color: white !important;
         margin-bottom: 10px;
         font-size: 14px;
         font-weight: 600;
     }
     
     .metric-value {
-        color: #1f2937 !important;
+        color: white !important;
         font-size: 24px;
         font-weight: bold;
         margin: 0;
@@ -507,7 +507,7 @@ def create_quotron_ticker():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        return
+        return quotron_data
     
     # Create ticker items as a single string
     ticker_content = ""
@@ -532,7 +532,7 @@ def create_quotron_ticker():
         mood_emoji = get_stock_emoji(percent_change)
         
         # Format: EMOJI SYMBOL $PRICE +/-CHANGE%
-        ticker_item = f'<span class="quotron-item {color_class}">{mood_emoji} {symbol} ${price:.2f} {sign}{percent_change:.2f}%</span>'
+        ticker_item = f'<span class="quotron-item {color_class}" data-symbol="{symbol}" style="cursor: pointer;">{mood_emoji} {symbol} ${price:.2f} {sign}{percent_change:.2f}%</span>'
         ticker_content += ticker_item
     
     # Repeat content for continuous scrolling
@@ -548,6 +548,8 @@ def create_quotron_ticker():
     """
     
     st.markdown(ticker_html, unsafe_allow_html=True)
+    
+    return quotron_data
 
 def get_stock_info(symbol: str) -> Dict:
     """Get comprehensive stock information from Yahoo Finance"""
@@ -718,6 +720,19 @@ def calculate_sentiment_score(news_data: List[Dict]) -> float:
     
     return total_sentiment / len(news_data)
 
+def get_recommendation(sentiment_score: float, price_change: float) -> str:
+    """Get investment recommendation based on sentiment and price movement"""
+    if sentiment_score > 0.1 and price_change > 2:
+        return "STRONG BUY"
+    elif sentiment_score > 0.05 and price_change > 0:
+        return "BUY"
+    elif sentiment_score > -0.05 and abs(price_change) < 2:
+        return "HOLD"
+    elif sentiment_score < -0.1 and price_change < -2:
+        return "STRONG SELL"
+    else:
+        return "SELL"
+
 def display_home_page():
     """Display the main home page"""
     # Header
@@ -728,8 +743,21 @@ def display_home_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Create quotron ticker (display only)
-    create_quotron_ticker()
+    # Create quotron ticker
+    quotron_data = create_quotron_ticker()
+    
+    # Create clickable buttons for quotron stocks
+    if quotron_data:
+        st.markdown("### 🔍 Click on any stock to analyze:")
+        cols = st.columns(len(quotron_data))
+        for i, stock in enumerate(quotron_data):
+            with cols[i]:
+                mood_emoji = get_stock_emoji(stock['percent_change'])
+                change_text = f"{stock['change']:+.2f} ({stock['percent_change']:+.2f}%)"
+                if st.button(f"{mood_emoji} {stock['symbol']}\n${stock['current_price']:.2f}\n{change_text}", key=f"quotron_click_{stock['symbol']}"):
+                    st.session_state.selected_stock = stock['symbol']
+                    st.session_state.current_page = 'stock_analysis'
+                    st.rerun()
     
     # Search section
     st.markdown('<div class="search-section">', unsafe_allow_html=True)
@@ -871,10 +899,11 @@ def display_stock_analysis():
         """, unsafe_allow_html=True)
     
     with col2:
+        change_color = "green" if stock_info['change'] > 0 else "red" if stock_info['change'] < 0 else "gray"
         st.markdown(f"""
         <div class="metric-card">
             <h4>Daily Change</h4>
-            <p class="metric-value">{stock_info['change']:+.2f} ({stock_info['percent_change']:+.2f}%)</p>
+            <p class="metric-value" style="color: {change_color};">{stock_info['change']:+.2f} ({stock_info['percent_change']:+.2f}%)</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -895,10 +924,11 @@ def display_stock_analysis():
         """, unsafe_allow_html=True)
     
     with col5:
+        change_color = "green" if stock_info['week_change'] >= 0 else "red"
         st.markdown(f"""
         <div class="metric-card">
             <h4>Week Change</h4>
-            <p class="metric-value">{stock_info['week_change']:+.2f}%</p>
+            <p class="metric-value" style="color: {change_color};">{stock_info['week_change']:+.2f}%</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -987,10 +1017,13 @@ def display_stock_analysis():
             
             if avg_sentiment >= 0.1:
                 sentiment_badge = "🟢 Positive"
+                sentiment_class = "positive"
             elif avg_sentiment <= -0.1:
                 sentiment_badge = "🔴 Negative"
+                sentiment_class = "negative"
             else:
                 sentiment_badge = "🟡 Neutral"
+                sentiment_class = "neutral"
             
             with st.expander(f"{sentiment_badge} {article['headline'][:80]}..."):
                 st.markdown(f"**Source:** {article['source']}")
@@ -1053,8 +1086,23 @@ def display_stock_analysis():
     except Exception as e:
         st.error(f"Error loading price chart: {str(e)}")
 
+# Handle stock selection from URL parameters (quotron clicks)
+try:
+    query_params = st.query_params
+    if 'stock' in query_params:
+        selected_stock = query_params['stock']
+        if selected_stock:
+            st.session_state.selected_stock = selected_stock
+            st.session_state.current_page = 'stock_analysis'
+            # Clear the query parameter
+            st.query_params.clear()
+            st.rerun()
+except:
+    pass
+
 # Main application logic
 def main():
+    # Check for stock selection via URL parameters
     if st.session_state.current_page == 'home':
         display_home_page()
     elif st.session_state.current_page == 'stock_analysis':
