@@ -13,7 +13,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="StockMood Pro",
+    page_title="StockMood",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
