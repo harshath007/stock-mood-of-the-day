@@ -572,7 +572,8 @@ def get_quotron_data() -> List[Dict]:
         return st.session_state.quotron_stocks
     
     # Use a subset of popular stocks for quotron
-    quotron_symbols = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "NFLX"]
+    quotron_symbols = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "NFLX", "ORCL", "CRM", "ADBE", "INTC", "AMD", "UBER", "LYFT", "SHOP",
+    "PYPL", "SQ", "ROKU", "ZOOM", "SNOW", "PLTR", "COIN", "HOOD"]
     
     with st.spinner("Loading market data..."):
         for symbol in quotron_symbols:
