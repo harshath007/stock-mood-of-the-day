@@ -3,263 +3,306 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
+from datetime import datetime, timedelta
 import requests
 import os
 import time
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, Optional, List
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-# Page configuration
+# Configure Streamlit page
 st.set_page_config(
     page_title="StockMood Pro",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# Custom CSS styling
+# Hide Streamlit branding and warnings
 st.markdown("""
 <style>
-    /* Hide Streamlit header and menu */
-    #MainMenu {visibility: hidden;}
-    .stDeployButton {display: none;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+#MainMenu {visibility: hidden;}
+.stDeployButton {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.stAlert > div {display: none;}
+</style>
+""", unsafe_allow_html=True)
+
+# Suppress warnings
+import warnings
+warnings.filterwarnings('ignore')
+
+# Initialize session state
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'home'
+if 'selected_stock' not in st.session_state:
+    st.session_state.selected_stock = None
+if 'quotron_stocks' not in st.session_state:
+    st.session_state.quotron_stocks = []
+
+# Initialize sentiment analyzer
+@st.cache_resource
+def get_sentiment_analyzer():
+    return SentimentIntensityAnalyzer()
+
+analyzer = get_sentiment_analyzer()
+
+# Finnhub API configuration
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "default_key")
+FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
+
+# Major market indices and popular stocks
+MAJOR_INDICES = [
+    "^GSPC", "^DJI", "^IXIC", "^RUT", "^VIX", "^TNX"  # S&P 500, Dow Jones, NASDAQ, Russell 2000, VIX, 10-Year Treasury
+]
+
+POPULAR_STOCKS = [
+    "AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "NFLX", 
+    "ORCL", "CRM", "ADBE", "INTC", "AMD", "UBER", "LYFT", "SHOP",
+    "PYPL", "SQ", "ROKU", "ZOOM", "SNOW", "PLTR", "COIN", "HOOD"
+]
+
+def get_stock_emoji(percent_change):
+    """Get emoji based on stock mood (percent change)"""
+    if percent_change > 3:
+        return "🚀"  # Very positive
+    elif percent_change > 1:
+        return "😊"  # Positive
+    elif percent_change > 0:
+        return "🙂"  # Slightly positive
+    elif percent_change == 0:
+        return "😐"  # Neutral
+    elif percent_change > -1:
+        return "🙁"  # Slightly negative
+    elif percent_change > -3:
+        return "😟"  # Negative
+    else:
+        return "💥"  # Very negative
+
+# Fun, interactive styling
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
     
-    /* Main layout */
-    .main > div {
-        padding: 0;
+    .stApp {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: #f8fafc;
+        min-height: 100vh;
+        color: #1f2937;
     }
     
-    /* Header styling */
-    .header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 30px 0;
-        text-align: center;
-        margin-bottom: 30px;
-        border-radius: 0 0 20px 20px;
+    /* Clean container */
+    .main-container {
+        background: white;
+        border-radius: 20px;
+        margin: 10px;
+        padding: 20px;
         box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        color: #1f2937;
     }
     
-    .header h1 {
+    .main-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #22c55e, #000000, #ef4444);
+        border-radius: 20px 20px 0 0;
+    }
+    
+    /* Clean hero section */
+    .hero-section {
+        text-align: center;
+        padding: 30px 20px;
+        background: #000000;
+        border-radius: 15px;
+        margin-bottom: 20px;
         color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: float 6s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: rotate(0deg) translate(0, 0); }
+        50% { transform: rotate(180deg) translate(20px, -20px); }
+    }
+    
+    .hero-title {
         font-size: 3rem;
+        font-weight: 800;
         margin: 0;
-        font-weight: 700;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        position: relative;
+        z-index: 1;
     }
     
-    .header p {
-        color: rgba(255,255,255,0.9);
+    .hero-subtitle {
         font-size: 1.2rem;
-        margin: 10px 0 0 0;
+        margin: 1rem 0;
+        opacity: 0.9;
+        position: relative;
+        z-index: 1;
     }
     
-    /* Quotron ticker */
+    /* Clean Quotron Ticker */
     .quotron {
-        background: #1a1a1a;
-        color: #00ff00;
-        padding: 15px;
-        margin: 20px 0;
+        background: #000000;
         border-radius: 10px;
-        font-family: 'Courier New', monospace;
-        font-size: 18px;
-        font-weight: bold;
+        margin: 15px 0;
         overflow: hidden;
         position: relative;
-        border: 2px solid #333;
+        height: 50px;
+        border: 1px solid #333333;
     }
     
     .quotron-content {
+        display: flex;
+        animation: scroll 90s linear infinite;
+        height: 100%;
+        align-items: center;
         white-space: nowrap;
-        animation: scroll-left 60s linear infinite;
+        padding: 0 20px;
+        gap: 40px;
     }
     
-    @keyframes scroll-left {
+    @keyframes scroll {
         0% { transform: translateX(100%); }
         100% { transform: translateX(-100%); }
     }
     
     .quotron-item {
+        color: #ffffff;
+        font-family: 'Inter', monospace;
+        font-weight: 600;
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 10px 16px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        white-space: nowrap;
         display: inline-block;
-        margin-right: 50px;
-        padding: 5px 15px;
-        border-radius: 5px;
-        transition: all 0.3s ease;
     }
     
     .quotron-item:hover {
-        background: rgba(0,255,0,0.1);
+        background: rgba(255, 255, 255, 0.1);
+        border-color: #ffffff;
         transform: scale(1.05);
     }
     
     .quotron-item.positive {
-        color: #00ff00;
-        background: rgba(0,255,0,0.1);
+        color: #22c55e;
     }
     
     .quotron-item.negative {
-        color: #ff4444;
-        background: rgba(255,68,68,0.1);
+        color: #ef4444;
     }
     
     .quotron-item.neutral {
-        color: #ffff00;
-        background: rgba(255,255,0,0.1);
+        color: #ffffff;
     }
     
-    /* Cards */
+    /* Fun popup cards */
     .popup-card {
         background: white;
         padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.08);
         margin: 15px 0;
-        border: 1px solid #e5e7eb;
-        transition: all 0.3s ease;
-        text-align: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid rgba(0,0,0,0.05);
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
     }
     
     .popup-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+        transform: translateY(-5px) scale(1.01);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.12);
     }
     
-    .popup-card h4 {
-        color: #1f2937;
-        margin: 0 0 10px 0;
-        font-size: 1.2rem;
-    }
-    
-    .popup-card p {
-        color: #6b7280;
-        margin: 5px 0;
-        font-size: 1rem;
-    }
-    
-    /* Stock symbol and emoji */
-    .stock-symbol {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f2937;
-        margin-left: 10px;
-    }
-    
-    .stock-emoji {
-        font-size: 3rem;
-        margin-right: 15px;
-    }
-    
-    /* Metric cards */
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
-        border-radius: 12px;
-        text-align: center;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-        margin: 10px 0;
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-    
-    .metric-card h4 {
-        color: white !important;
-        margin-bottom: 10px;
-        font-size: 14px;
-        font-weight: 600;
-    }
-    
-    .metric-value {
-        color: white !important;
-        font-size: 24px;
-        font-weight: bold;
-        margin: 0;
-    }
-    
-    /* Search styling */
-    .search-section {
-        background: #f8fafc;
-        padding: 25px;
-        border-radius: 15px;
-        margin: 20px 0;
-        border: 1px solid #e5e7eb;
-    }
-    
-    .search-title {
-        color: #1f2937;
-        font-size: 1.5rem;
-        font-weight: 600;
-        margin-bottom: 15px;
-        text-align: center;
-    }
-    
-    /* Stock analysis badges */
-    .buy-badge {
-        background: #22c55e;
-        color: white;
-        padding: 15px 30px;
-        border-radius: 25px;
-        font-size: 1.2rem;
-        font-weight: bold;
-        text-align: center;
-        margin: 20px 0;
-        box-shadow: 0 5px 15px rgba(34, 197, 94, 0.3);
-    }
-    
-    .sell-badge {
-        background: #ef4444;
-        color: white;
-        padding: 15px 30px;
-        border-radius: 25px;
-        font-size: 1.2rem;
-        font-weight: bold;
-        text-align: center;
-        margin: 20px 0;
-        box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
-    }
-    
-    .hold-badge {
-        background: #f59e0b;
-        color: white;
-        padding: 15px 30px;
-        border-radius: 25px;
-        font-size: 1.2rem;
-        font-weight: bold;
-        text-align: center;
-        margin: 20px 0;
-        box-shadow: 0 5px 15px rgba(245, 158, 11, 0.3);
-    }
-    
-    /* Score card */
+    /* Clean score display */
     .score-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 30px;
-        border-radius: 20px;
+        background: #000000;
+        color: white;
+        padding: 30px 25px;
+        border-radius: 15px;
         text-align: center;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        margin: 20px 0;
+        margin: 15px 0;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        border: 2px solid #e5e7eb;
+    }
+    
+    .score-card:hover {
+        transform: scale(1.05) rotate(1deg);
+        box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
     }
     
     .score-number {
-        font-size: 4rem;
-        font-weight: bold;
-        color: white;
-        margin: 0;
+        font-size: 5rem;
+        font-weight: 900;
+        margin: 1rem 0;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
     
     .score-label {
-        color: rgba(255,255,255,0.9);
-        font-size: 1.2rem;
-        margin: 10px 0 0 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        position: relative;
+        z-index: 1;
     }
     
+    /* Fun recommendation badges */
     .recommendation-badge {
-        padding: 20px 40px;
-        border-radius: 25px;
-        font-size: 1.5rem;
-        font-weight: bold;
+        padding: 20px 30px;
+        border-radius: 50px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
         text-align: center;
         margin: 20px 0;
+        font-size: 1.2rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .buy-badge {
+        background: linear-gradient(135deg, #22c55e, #16a34a);
+        color: white;
+        box-shadow: 0 15px 30px rgba(34, 197, 94, 0.4);
+    }
+    
+    .sell-badge {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        box-shadow: 0 15px 30px rgba(239, 68, 68, 0.4);
+    }
+    
+    .hold-badge {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
         color: white;
         box-shadow: 0 15px 30px rgba(245, 158, 11, 0.4);
     }
@@ -307,88 +350,154 @@ st.markdown("""
         color: #1f2937 !important;
     }
     
-    /* Input styling */
-    .stTextInput > div > div > input {
+    /* Metric card styling */
+    .metric-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        margin: 10px 0;
+        border: 1px solid #cbd5e1;
+    }
+    
+    .metric-card h4 {
+        color: #374151 !important;
+        margin-bottom: 10px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+    
+    .metric-value {
+        color: #1f2937 !important;
+        font-size: 24px;
+        font-weight: bold;
+        margin: 0;
+    }
+    
+    /* Selectbox styling */
+    .stSelectbox label {
+        color: #1f2937 !important;
+        font-weight: 500 !important;
+    }
+    
+    .stSelectbox > div > div {
+        background: white !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 8px;
+        color: #1f2937 !important;
+    }
+    
+    /* Clickable news links */
+    .news-link {
+        color: #2563eb !important;
+        text-decoration: underline;
+        cursor: pointer;
+        transition: color 0.2s ease;
+    }
+    
+    .news-link:hover {
+        color: #1d4ed8 !important;
+    }
+    
+    /* Company info cards */
+    .company-info {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 15px 0;
+    }
+    
+    .metric-card {
+        background: white;
+        border: 1px solid #e5e7eb;
         border-radius: 10px;
-        border: 2px solid #e5e7eb;
         padding: 15px;
-        font-size: 1rem;
+        margin: 10px 0;
+        text-align: center;
     }
     
-    .stTextInput > div > div > input:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1f2937;
     }
     
-    /* Hide Streamlit branding and empty containers */
-    .viewerBadge_container__1QSob {
-        display: none !important;
+    .metric-label {
+        font-size: 0.9rem;
+        color: #6b7280;
+        margin-top: 5px;
     }
     
-    /* Hide any iframe or component containers that might show as black spots */
-    iframe[title=""] {
-        display: none !important;
-        height: 0 !important;
-        width: 0 !important;
+    /* Stock emoji display */
+    .stock-emoji {
+        font-size: 2rem;
+        margin-right: 10px;
     }
     
-    /* Hide empty component containers */
-    .stComponentBlock {
-        display: none !important;
+    /* Stock symbol styling */
+    .stock-symbol {
+        font-weight: 800;
+        font-size: 2rem;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
     
-    /* Hide html component containers */
-    .element-container:has(iframe[title=""]) {
-        display: none !important;
+    /* Sentiment badges */
+    .sentiment-positive {
+        background: linear-gradient(135deg, #22c55e, #16a34a);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-transform: uppercase;
+    }
+    
+    .sentiment-negative {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-transform: uppercase;
+    }
+    
+    .sentiment-neutral {
+        background: linear-gradient(135deg, #6b7280, #4b5563);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.9em;
+        text-transform: uppercase;
+    }
+    
+    /* News cards */
+    .news-card {
+        background: white;
+        padding: 20px;
+        border-radius: 18px;
+        margin: 15px 0;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-left: 4px solid #667eea;
+        cursor: pointer;
+    }
+    
+    .news-card:hover {
+        transform: translateX(10px) scale(1.02);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        border-left-width: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = 'home'
-if 'selected_stock' not in st.session_state:
-    st.session_state.selected_stock = 'AAPL'
-if 'quotron_stocks' not in st.session_state:
-    st.session_state.quotron_stocks = []
-
-# Finnhub API configuration
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "default_key")
-FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
-
-# Major market indices and popular stocks
-MAJOR_INDICES = [
-    "^GSPC", "^DJI", "^IXIC", "^RUT", "^VIX", "^TNX"  # S&P 500, Dow Jones, NASDAQ, Russell 2000, VIX, 10-Year Treasury
-]
-
-POPULAR_STOCKS = [
-    "AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "NFLX", 
-    "ORCL", "CRM", "ADBE", "INTC", "AMD", "UBER", "LYFT", "SHOP",
-    "PYPL", "SQ", "ROKU", "ZOOM", "SNOW", "PLTR", "COIN", "HOOD"
-]
-
-# Sentiment analyzer
-@st.cache_resource
-def get_sentiment_analyzer():
-    return SentimentIntensityAnalyzer()
-
-def get_stock_emoji(percent_change):
-    """Get emoji based on stock mood (percent change)"""
-    if percent_change > 5:
-        return "🚀"  # Rocket for big gains
-    elif percent_change > 2:
-        return "📈"  # Chart up for good gains
-    elif percent_change > 0:
-        return "💚"  # Green heart for small gains
-    elif percent_change == 0:
-        return "➡️"  # Arrow for no change
-    elif percent_change > -2:
-        return "❤️"  # Red heart for small losses
-    elif percent_change > -5:
-        return "📉"  # Chart down for moderate losses
-    else:
-        return "💥"  # Explosion for big losses
-
+# Finnhub API functions
 def get_stock_quote(symbol: str) -> Optional[Dict]:
     """Get real-time stock quote from Finnhub API"""
     try:
@@ -397,21 +506,16 @@ def get_stock_quote(symbol: str) -> Optional[Dict]:
             'symbol': symbol,
             'token': FINNHUB_API_KEY
         }
-        
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         data = response.json()
         
         if 'c' in data and data['c'] is not None:
-            current_price = data['c']
-            change = data['d']
-            percent_change = data['dp']
-            
             return {
                 'symbol': symbol,
-                'current_price': current_price,
-                'change': change,
-                'percent_change': percent_change,
+                'current_price': data['c'],
+                'change': data['d'],
+                'percent_change': data['dp'],
                 'high': data['h'],
                 'low': data['l'],
                 'open': data['o'],
@@ -507,7 +611,7 @@ def create_quotron_ticker():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        return quotron_data
+        return
     
     # Create ticker items as a single string
     ticker_content = ""
@@ -538,7 +642,7 @@ def create_quotron_ticker():
     # Repeat content for continuous scrolling
     full_content = ticker_content * 3
     
-    # Create the quotron ticker
+    # Create the quotron ticker with click handling
     ticker_html = f"""
     <div class="quotron">
         <div class="quotron-content">
@@ -549,25 +653,19 @@ def create_quotron_ticker():
     
     st.markdown(ticker_html, unsafe_allow_html=True)
     
-    return quotron_data
+    # Note: Quotron is display-only, use search or quick select buttons to analyze stocks
 
 def get_stock_info(symbol: str) -> Dict:
     """Get comprehensive stock information from Yahoo Finance"""
     try:
-        ticker = yf.Ticker(symbol)
-        info = ticker.info
-        hist = ticker.history(period="1y")
-        
-        if hist.empty:
-            return None
-        
-        # Get current price data
-        current_price = hist['Close'].iloc[-1]
-        previous_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
-        change = current_price - previous_close
-        percent_change = (change / previous_close) * 100 if previous_close != 0 else 0
+        stock = yf.Ticker(symbol)
+        info = stock.info
+        hist = stock.history(period="1y")
         
         # Calculate technical indicators
+        close_prices = hist['Close']
+        
+        # RSI calculation
         def calculate_rsi(prices, period=14):
             delta = prices.diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -576,216 +674,267 @@ def get_stock_info(symbol: str) -> Dict:
             rsi = 100 - (100 / (1 + rs))
             return rsi.iloc[-1] if not rsi.empty else 50
         
+        # MACD calculation
         def calculate_macd(prices, fast=12, slow=26, signal=9):
             exp1 = prices.ewm(span=fast).mean()
             exp2 = prices.ewm(span=slow).mean()
             macd = exp1 - exp2
             signal_line = macd.ewm(span=signal).mean()
-            histogram = macd - signal_line
-            return macd.iloc[-1], signal_line.iloc[-1], histogram.iloc[-1]
+            return macd.iloc[-1] - signal_line.iloc[-1] if not macd.empty else 0
         
-        # Calculate week change
-        week_ago_price = hist['Close'].iloc[-7] if len(hist) > 7 else current_price
-        week_change = ((current_price - week_ago_price) / week_ago_price) * 100 if week_ago_price != 0 else 0
+        # Get week data
+        week_data = hist.tail(7)
+        week_high = week_data['High'].max()
+        week_low = week_data['Low'].min()
+        week_change = ((close_prices.iloc[-1] - close_prices.iloc[-7]) / close_prices.iloc[-7]) * 100 if len(close_prices) > 7 else 0
         
-        # Get additional metrics
-        market_cap = info.get('marketCap', 0)
-        pe_ratio = info.get('trailingPE', 0) or 0
-        profit_margin = info.get('profitMargins', 0) or 0
-        debt_to_equity = info.get('debtToEquity', 0) or 0
+        rsi = calculate_rsi(close_prices)
+        macd = calculate_macd(close_prices)
         
         return {
             'symbol': symbol,
-            'current_price': current_price,
-            'change': change,
-            'percent_change': percent_change,
+            'name': info.get('longName', symbol),
+            'sector': info.get('sector', 'N/A'),
+            'industry': info.get('industry', 'N/A'),
+            'summary': info.get('longBusinessSummary', 'No summary available'),
+            'current_price': info.get('currentPrice', close_prices.iloc[-1]),
+            'market_cap': info.get('marketCap', 0),
+            'pe_ratio': info.get('trailingPE', 0),
+            'debt_to_equity': info.get('debtToEquity', 0),
+            'profit_margin': info.get('profitMargins', 0),
+            'roe': info.get('returnOnEquity', 0),
+            'revenue_growth': info.get('revenueGrowth', 0),
+            'rsi': rsi,
+            'macd': macd,
+            'week_high': week_high,
+            'week_low': week_low,
             'week_change': week_change,
-            'day_high': hist['High'].iloc[-1],
-            'day_low': hist['Low'].iloc[-1],
-            'volume': hist['Volume'].iloc[-1],
-            'market_cap': market_cap,
-            'pe_ratio': pe_ratio,
-            'profit_margin': profit_margin,
-            'debt_to_equity': debt_to_equity,
-            '52_week_high': hist['High'].max(),
-            '52_week_low': hist['Low'].min(),
-            'avg_volume': hist['Volume'].tail(30).mean(),
-            'previous_close': previous_close,
-            'rsi': calculate_rsi(hist['Close']),
-            'macd': calculate_macd(hist['Close'])
+            'volume': info.get('volume', 0),
+            'avg_volume': info.get('averageVolume', 0),
+            'dividend_yield': info.get('dividendYield', 0) or 0,
+            'beta': info.get('beta', 1.0),
+            'price_to_book': info.get('priceToBook', 0),
+            'earnings_growth': info.get('earningsGrowth', 0)
         }
     except Exception as e:
-        st.error(f"Error getting stock info for {symbol}: {str(e)}")
+        st.error(f"Error fetching stock info for {symbol}: {str(e)}")
         return None
 
 def calculate_comprehensive_score(stock_info: Dict, news_sentiment: float) -> int:
     """Calculate comprehensive financial score out of 100"""
-    score = 50  # Base score
+    if not stock_info:
+        return 50
     
-    # Price momentum (20 points)
-    if stock_info['percent_change'] > 5:
-        score += 20
-    elif stock_info['percent_change'] > 2:
-        score += 15
-    elif stock_info['percent_change'] > 0:
+    score = 0
+    
+    # Financial Health (30 points)
+    # Profit Margin (10 points)
+    profit_margin = stock_info.get('profit_margin', 0)
+    if profit_margin > 0.2:  # >20%
         score += 10
-    elif stock_info['percent_change'] < -5:
-        score -= 20
-    elif stock_info['percent_change'] < -2:
-        score -= 15
-    else:
-        score -= 10
+    elif profit_margin > 0.1:  # 10-20%
+        score += 7
+    elif profit_margin > 0.05:  # 5-10%
+        score += 5
+    elif profit_margin > 0:  # 0-5%
+        score += 3
     
-    # Week performance (15 points)
-    if stock_info['week_change'] > 5:
-        score += 15
-    elif stock_info['week_change'] > 0:
+    # Debt to Equity (10 points)
+    debt_to_equity = stock_info.get('debt_to_equity', 100)
+    if debt_to_equity < 30:
         score += 10
-    elif stock_info['week_change'] < -5:
-        score -= 15
-    else:
-        score -= 10
+    elif debt_to_equity < 50:
+        score += 7
+    elif debt_to_equity < 100:
+        score += 5
+    elif debt_to_equity < 200:
+        score += 3
     
-    # RSI analysis (10 points)
+    # ROE (10 points)
+    roe = stock_info.get('roe', 0)
+    if roe > 0.15:  # >15%
+        score += 10
+    elif roe > 0.1:  # 10-15%
+        score += 7
+    elif roe > 0.05:  # 5-10%
+        score += 5
+    elif roe > 0:  # 0-5%
+        score += 3
+    
+    # Technical Indicators (30 points)
+    # RSI (15 points)
     rsi = stock_info.get('rsi', 50)
-    if 30 <= rsi <= 70:
-        score += 10
-    elif rsi < 30:
-        score += 5  # Oversold, potential buy
-    else:
-        score -= 5  # Overbought
-    
-    # Profit margin (10 points)
-    if stock_info['profit_margin'] > 0.2:
-        score += 10
-    elif stock_info['profit_margin'] > 0.1:
-        score += 5
-    elif stock_info['profit_margin'] < 0:
-        score -= 10
-    
-    # Debt to equity (10 points)
-    if stock_info['debt_to_equity'] < 0.5:
-        score += 10
-    elif stock_info['debt_to_equity'] < 1.0:
-        score += 5
-    elif stock_info['debt_to_equity'] > 2.0:
-        score -= 10
-    
-    # News sentiment (15 points)
-    if news_sentiment > 0.1:
+    if 40 <= rsi <= 60:  # Neutral zone
         score += 15
+    elif 30 <= rsi <= 70:  # Good zone
+        score += 12
+    elif 20 <= rsi <= 80:  # Acceptable zone
+        score += 8
+    else:  # Overbought/Oversold
+        score += 5
+    
+    # MACD (15 points)
+    macd = stock_info.get('macd', 0)
+    if macd > 0:  # Bullish
+        score += 15
+    elif macd > -0.5:  # Slightly bearish
+        score += 10
+    else:  # Bearish
+        score += 5
+    
+    # Valuation (20 points)
+    # P/E Ratio (10 points)
+    pe_ratio = stock_info.get('pe_ratio', 25)
+    if pe_ratio and pe_ratio > 0:
+        if 10 <= pe_ratio <= 20:  # Good value
+            score += 10
+        elif 5 <= pe_ratio <= 30:  # Acceptable
+            score += 7
+        elif pe_ratio <= 40:  # High but reasonable
+            score += 5
+        else:  # Overvalued
+            score += 2
+    
+    # Price to Book (10 points)
+    ptb = stock_info.get('price_to_book', 3)
+    if ptb and ptb > 0:
+        if ptb <= 1.5:  # Undervalued
+            score += 10
+        elif ptb <= 3:  # Fair value
+            score += 7
+        elif ptb <= 5:  # High but acceptable
+            score += 5
+        else:  # Overvalued
+            score += 2
+    
+    # Growth & Sentiment (20 points)
+    # Revenue Growth (10 points)
+    revenue_growth = stock_info.get('revenue_growth', 0)
+    if revenue_growth > 0.15:  # >15%
+        score += 10
+    elif revenue_growth > 0.1:  # 10-15%
+        score += 7
+    elif revenue_growth > 0.05:  # 5-10%
+        score += 5
+    elif revenue_growth > 0:  # 0-5%
+        score += 3
+    
+    # News Sentiment (10 points)
+    if news_sentiment > 0.3:
+        score += 10
+    elif news_sentiment > 0.1:
+        score += 7
     elif news_sentiment > -0.1:
         score += 5
-    else:
-        score -= 15
+    elif news_sentiment > -0.3:
+        score += 3
     
-    # Volume analysis (10 points)
-    volume_ratio = stock_info['volume'] / stock_info['avg_volume']
-    if volume_ratio > 1.5:
-        score += 10
-    elif volume_ratio > 1.2:
-        score += 5
-    elif volume_ratio < 0.8:
-        score -= 5
-    
-    # P/E ratio (10 points)
-    if 10 <= stock_info['pe_ratio'] <= 25:
-        score += 10
-    elif 5 <= stock_info['pe_ratio'] <= 35:
-        score += 5
-    elif stock_info['pe_ratio'] > 50:
-        score -= 10
-    
+    # Ensure score is between 0 and 100
     return max(0, min(100, score))
 
 def analyze_sentiment(text: str) -> Dict:
     """Analyze sentiment of text using VADER"""
-    analyzer = get_sentiment_analyzer()
-    return analyzer.polarity_scores(text)
+    scores = analyzer.polarity_scores(text)
+    
+    # Determine overall sentiment
+    if scores['compound'] >= 0.05:
+        sentiment = 'positive'
+    elif scores['compound'] <= -0.05:
+        sentiment = 'negative'
+    else:
+        sentiment = 'neutral'
+    
+    return {
+        'sentiment': sentiment,
+        'compound': scores['compound'],
+        'positive': scores['pos'],
+        'negative': scores['neg'],
+        'neutral': scores['neu']
+    }
 
 def calculate_sentiment_score(news_data: List[Dict]) -> float:
     """Calculate overall sentiment score from news data"""
     if not news_data:
         return 0.0
     
-    total_sentiment = 0.0
+    total_score = 0.0
     for article in news_data:
         headline_sentiment = analyze_sentiment(article['headline'])
         summary_sentiment = analyze_sentiment(article['summary'])
         
         # Weight headline more than summary
-        article_sentiment = (headline_sentiment['compound'] * 0.6 + 
-                           summary_sentiment['compound'] * 0.4)
-        total_sentiment += article_sentiment
+        article_score = (headline_sentiment['compound'] * 0.6 + 
+                        summary_sentiment['compound'] * 0.4)
+        total_score += article_score
     
-    return total_sentiment / len(news_data)
+    return total_score / len(news_data)
 
 def get_recommendation(sentiment_score: float, price_change: float) -> str:
     """Get investment recommendation based on sentiment and price movement"""
-    if sentiment_score > 0.1 and price_change > 2:
-        return "STRONG BUY"
-    elif sentiment_score > 0.05 and price_change > 0:
+    if sentiment_score > 0.3 and price_change > 0:
         return "BUY"
-    elif sentiment_score > -0.05 and abs(price_change) < 2:
-        return "HOLD"
-    elif sentiment_score < -0.1 and price_change < -2:
-        return "STRONG SELL"
-    else:
+    elif sentiment_score < -0.3 and price_change < 0:
         return "SELL"
+    else:
+        return "HOLD"
 
 def display_home_page():
     """Display the main home page"""
-    # Header
     st.markdown("""
-    <div class="header">
-        <h1>📈 StockMood Pro</h1>
-        <p>Advanced Stock Analysis with Real-Time Market Sentiment</p>
+    <div class="main-container">
+        <div class="hero-section">
+            <div class="hero-title">StockMood Pro</div>
+            <div class="hero-subtitle">Comprehensive Stock Analysis & Investment Scoring</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
     # Create quotron ticker
-    quotron_data = create_quotron_ticker()
+    create_quotron_ticker()
     
-    # Create clickable buttons for quotron stocks
-    if quotron_data:
-        st.markdown("### 🔍 Click on any stock to analyze:")
-        cols = st.columns(len(quotron_data))
-        for i, stock in enumerate(quotron_data):
-            with cols[i]:
-                mood_emoji = get_stock_emoji(stock['percent_change'])
-                change_text = f"{stock['change']:+.2f} ({stock['percent_change']:+.2f}%)"
-                if st.button(f"{mood_emoji} {stock['symbol']}\n${stock['current_price']:.2f}\n{change_text}", key=f"quotron_click_{stock['symbol']}"):
-                    st.session_state.selected_stock = stock['symbol']
-                    st.session_state.current_page = 'stock_analysis'
-                    st.rerun()
+    # Add click instructions
+    st.markdown("💡 **Click on any stock in the ticker above to view detailed analysis**")
+    st.markdown("---")
     
-    # Search section
-    st.markdown('<div class="search-section">', unsafe_allow_html=True)
-    st.markdown('<div class="search-title">🔍 Search Any Stock</div>', unsafe_allow_html=True)
+    # Stock selection
+    st.markdown("### 📊 Analyze Any Stock")
     
-    # Search input
-    search_symbol = st.text_input("Enter stock symbol (e.g., AAPL, GOOGL, TSLA):", key="stock_search")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        # Text input for any stock symbol
+        stock_input = st.text_input(
+            "Enter any stock symbol (e.g., AAPL, GOOGL, TSLA):",
+            placeholder="Type stock symbol here...",
+            help="Enter any valid stock symbol to get comprehensive analysis"
+        )
     
-    # Quick select buttons
-    st.markdown("**Quick Select:**")
-    cols = st.columns(4)
-    quick_stocks = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "NFLX"]
-    
-    for i, symbol in enumerate(quick_stocks):
-        with cols[i % 4]:
-            if st.button(symbol, key=f"quick_{symbol}"):
-                st.session_state.selected_stock = symbol
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)  # Add spacing to align button
+        if st.button("Analyze Stock", type="primary"):
+            if stock_input:
+                st.session_state.selected_stock = stock_input.upper()
                 st.session_state.current_page = 'stock_analysis'
                 st.rerun()
+            else:
+                st.warning("Please enter a stock symbol")
     
-    # Handle search
-    if search_symbol:
-        if st.button("Analyze Stock"):
-            st.session_state.selected_stock = search_symbol.upper()
-            st.session_state.current_page = 'stock_analysis'
-            st.rerun()
+    # Quick select from popular stocks
+    st.markdown("### 🔥 Popular Stocks")
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    # Create clickable stock cards
+    cols = st.columns(6)
+    for i, symbol in enumerate(POPULAR_STOCKS[:12]):  # Show first 12 popular stocks
+        with cols[i % 6]:
+            # Get stock data for mood emoji
+            quote = get_stock_quote(symbol)
+            if quote:
+                mood_emoji = get_stock_emoji(quote['percent_change'])
+                change_color = "🟢" if quote['change'] > 0 else "🔴" if quote['change'] < 0 else "⚪"
+                
+                if st.button(f"{mood_emoji} {symbol}", key=f"quick_{symbol}"):
+                    st.session_state.selected_stock = symbol
+                    st.session_state.current_page = 'stock_analysis'
+                    st.rerun()
     
     # Display major market indices
     st.markdown("### 📈 Major Market Indices")
@@ -846,13 +995,9 @@ def display_home_page():
 def display_stock_analysis():
     """Display detailed stock analysis page"""
     symbol = st.session_state.selected_stock
-    
-    # Validate symbol
     if not symbol:
-        st.error("Please select a stock symbol")
-        if st.button("← Back to Home"):
-            st.session_state.current_page = 'home'
-            st.rerun()
+        st.session_state.current_page = 'home'
+        st.rerun()
         return
     
     # Get current stock quote for mood emoji
@@ -876,59 +1021,74 @@ def display_stock_analysis():
     with st.spinner(f"Loading comprehensive analysis for {symbol}..."):
         stock_info = get_stock_info(symbol)
         stock_news = get_stock_news(symbol)
+        
+        if not stock_info:
+            st.error(f"Unable to fetch data for {symbol}")
+            return
     
-    if not stock_info:
-        st.error(f"Could not retrieve data for {symbol}. Please check the symbol and try again.")
-        return
+    # Display company information
+    st.markdown("## 🏢 Company Information")
+    st.markdown(f"""
+    <div class="company-info">
+        <h3>{stock_info['name']}</h3>
+        <p><strong>Sector:</strong> {stock_info['sector']} | <strong>Industry:</strong> {stock_info['industry']}</p>
+        <p><strong>Summary:</strong> {stock_info['summary'][:400]}...</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Display essential metrics in card format
-    st.markdown("## 📊 Essential Metrics")
+    # Display key metrics - only essential upfront metrics
+    st.markdown("## 📊 Key Metrics")
     
     col1, col2, col3, col4, col5 = st.columns(5)
-    
-    current_price = stock_info['current_price']
-    daily_high = stock_info['day_high']
-    daily_low = stock_info['day_low']
     
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Current Price</h4>
-            <p class="metric-value">${current_price:.2f}</p>
+            <div class="metric-value">${stock_info['current_price']:.2f}</div>
+            <div class="metric-label">Current Price</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        change_color = "green" if stock_info['change'] > 0 else "red" if stock_info['change'] < 0 else "gray"
+        # Get daily high/low from Yahoo Finance
+        try:
+            ticker = yf.Ticker(symbol)
+            today_data = ticker.history(period="1d")
+            daily_high = today_data['High'].iloc[-1] if not today_data.empty else stock_info['week_high']
+            daily_low = today_data['Low'].iloc[-1] if not today_data.empty else stock_info['week_low']
+        except:
+            daily_high = stock_info['week_high']
+            daily_low = stock_info['week_low']
+        
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Daily Change</h4>
-            <p class="metric-value" style="color: {change_color};">{stock_info['change']:+.2f} ({stock_info['percent_change']:+.2f}%)</p>
+            <div class="metric-value">${daily_high:.2f}</div>
+            <div class="metric-label">Daily High</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Daily Range</h4>
-            <p class="metric-value">${stock_info['day_low']:.2f} - ${stock_info['day_high']:.2f}</p>
+            <div class="metric-value">${daily_low:.2f}</div>
+            <div class="metric-label">Daily Low</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col4:
+        change_color = "🟢" if stock_info['week_change'] >= 0 else "🔴"
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Volume</h4>
-            <p class="metric-value">{stock_info['volume']:,}</p>
+            <div class="metric-value">{change_color} {stock_info['week_change']:.2f}%</div>
+            <div class="metric-label">Week Change</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col5:
-        change_color = "green" if stock_info['week_change'] >= 0 else "red"
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Week Change</h4>
-            <p class="metric-value" style="color: {change_color};">{stock_info['week_change']:+.2f}%</p>
+            <div class="metric-value">{stock_info['profit_margin']*100:.1f}%</div>
+            <div class="metric-label">Profit Margin</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -973,7 +1133,7 @@ def display_stock_analysis():
         </div>
         """, unsafe_allow_html=True)
     
-    # Display additional metrics
+    # Display only debt/equity as additional upfront metric
     st.markdown("## 💰 Additional Metrics")
     
     col1, col2, col3 = st.columns(3)
@@ -981,25 +1141,24 @@ def display_stock_analysis():
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Market Cap</h4>
-            <p class="metric-value">${stock_info['market_cap']/1e9:.1f}B</p>
+            <div class="metric-value">{stock_info['debt_to_equity']:.1f}</div>
+            <div class="metric-label">Debt/Equity Ratio</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        pe_text = f"{stock_info['pe_ratio']:.1f}" if stock_info['pe_ratio'] else "N/A"
         st.markdown(f"""
         <div class="metric-card">
-            <h4>P/E Ratio</h4>
-            <p class="metric-value">{pe_text}</p>
+            <div class="metric-value">{stock_info['market_cap']/1e9:.1f}B</div>
+            <div class="metric-label">Market Cap</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
         st.markdown(f"""
         <div class="metric-card">
-            <h4>Debt/Equity</h4>
-            <p class="metric-value">{stock_info['debt_to_equity']:.1f}</p>
+            <div class="metric-value">{stock_info['pe_ratio']:.1f}</div>
+            <div class="metric-label">P/E Ratio</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -1016,26 +1175,25 @@ def display_stock_analysis():
             avg_sentiment = (headline_sentiment['compound'] + summary_sentiment['compound']) / 2
             
             if avg_sentiment >= 0.1:
-                sentiment_badge = "🟢 Positive"
-                sentiment_class = "positive"
+                sentiment_badge = '<span class="sentiment-positive">Positive</span>'
             elif avg_sentiment <= -0.1:
-                sentiment_badge = "🔴 Negative"
-                sentiment_class = "negative"
+                sentiment_badge = '<span class="sentiment-negative">Negative</span>'
             else:
-                sentiment_badge = "🟡 Neutral"
-                sentiment_class = "neutral"
+                sentiment_badge = '<span class="sentiment-neutral">Neutral</span>'
             
-            with st.expander(f"{sentiment_badge} {article['headline'][:80]}..."):
-                st.markdown(f"**Source:** {article['source']}")
-                st.markdown(f"**Date:** {article['datetime'].strftime('%Y-%m-%d %H:%M')}")
-                st.markdown(f"**Summary:** {article['summary']}")
-                if article['url']:
-                    st.markdown(f"[Read full article]({article['url']})")
+            st.markdown(f"""
+            <div class="news-card">
+                <h4>{article['headline']}</h4>
+                <p><strong>Source:</strong> {article['source']} | <strong>Date:</strong> {article['datetime'].strftime('%Y-%m-%d %H:%M')} | {sentiment_badge}</p>
+                <p>{article['summary'][:300]}...</p>
+                <a href="{article['url']}" target="_blank" class="news-link">Read full article →</a>
+            </div>
+            """, unsafe_allow_html=True)
     else:
         st.info("No recent news available for this stock")
     
-    # Display price chart
-    st.markdown("## 📈 Price Chart")
+    # Display price chart using yfinance
+    st.markdown("### 📊 Price Chart")
     
     try:
         ticker = yf.Ticker(symbol)
@@ -1100,9 +1258,22 @@ try:
 except:
     pass
 
+# Check if any quotron stock was clicked
+if 'quotron_clicked_stock' in st.session_state and st.session_state.quotron_clicked_stock:
+    st.session_state.selected_stock = st.session_state.quotron_clicked_stock
+    st.session_state.current_page = 'stock_analysis'
+    st.session_state.quotron_clicked_stock = None
+    st.rerun()
+
 # Main application logic
 def main():
     # Check for stock selection via URL parameters
+    query_params = st.query_params
+    if 'stock' in query_params:
+        st.session_state.selected_stock = query_params['stock']
+        st.session_state.current_page = 'stock_analysis'
+    
+    # Display appropriate page
     if st.session_state.current_page == 'home':
         display_home_page()
     elif st.session_state.current_page == 'stock_analysis':
