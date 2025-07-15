@@ -884,7 +884,8 @@ def display_home_page():
     st.markdown("""
     <div class="main-container">
         <div class="hero-section">
-            <div class="hero-title">StockMood Pro</div>
+            <div class="hero-title">StockMood</div>
+            <div class="sub-title">Stocks Made Fun</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
