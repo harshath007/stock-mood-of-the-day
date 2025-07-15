@@ -50,7 +50,7 @@ def get_sentiment_analyzer():
 analyzer = get_sentiment_analyzer()
 
 # Finnhub API configuration
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "default_key")
+FINNHUB_API_KEY = os.getenv("d1modnpr01qlvnp3nvbgd1modnpr01qlvnp3nvc0", "default_key")
 FINNHUB_BASE_URL = "https://finnhub.io/api/v1"
 
 # Major market indices and popular stocks
