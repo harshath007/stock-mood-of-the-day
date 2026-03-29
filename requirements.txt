@@ -1,8 +1,7 @@
 streamlit
 yfinance
-feedparser
-vadersentiment
 pandas
-plotly
-pytz
 numpy
+plotly
+requests
+vaderSentiment
