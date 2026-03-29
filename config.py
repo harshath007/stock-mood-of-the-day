@@ -1,6 +1,6 @@
 import os
 
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
+FINNHUB_API_KEY = os.getenv("d1modnpr01qlvnp3nvbgd1modnpr01qlvnp3nvc0")
 
 if not FINNHUB_API_KEY:
     raise ValueError("Missing FINNHUB_API_KEY environment variable")
